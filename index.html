@@ -1,19 +1,315 @@
-<script type="module">
-  // Import the functions you need from the SDKs you need
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
-  // TODO: Add SDKs for Firebase products that you want to use
-  // https://firebase.google.com/docs/web/setup#available-libraries
+<!DOCTYPE html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Catatan Jastip Online</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap">
+<!-- Firebase App & Firestore SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);--bg:#f2f5f2;--card:#fff;--ink:#12302b;--mute:#62766f;--line:#dbe4df;--hi:#e8344e;--ok:#1a8a5a;--soft:#e4efe9;--sun:#ffd23f}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1a17;--card:#162824;--ink:#e7f1ed;--mute:#91a8a0;--line:#26403a;--soft:#1d332d}}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 'Plus Jakarta Sans',system-ui,sans-serif;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+header{padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
+h2{font-size:16px;font-weight:800;margin:20px 0 8px}
+.sub{color:var(--mute);font-size:13px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:12px;min-height:44px;padding:0 14px;background:var(--soft);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--sun);outline-offset:1px}
+main{padding:0 14px;max-width:560px;margin:0 auto}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+.chip{flex:none;min-height:36px;padding:0 12px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:10px 0}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.who{font-weight:800}.item{font-size:16px;font-weight:600}
+.price{font-weight:800;font-size:17px;text-align:right}
+.fx{font-size:12px;color:var(--mute)}
+.steps{display:flex;gap:4px;margin:10px 0 8px}
+.steps button{flex:1;min-height:30px;padding:0;border-radius:8px;font-size:10px;white-space:nowrap;overflow:hidden;background:var(--line);color:var(--mute)}
+.steps button.done{background:var(--soft);color:var(--ink)}
+.steps button.cur{background:var(--ink);color:var(--bg)}
+.acts{display:flex;gap:8px}
+.go{flex:1;background:var(--hi);color:#fff;font-weight:800}
+.wa{background:#25d366;color:#053b1c;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:12px;font-weight:700;text-decoration:none}
+.tag{display:inline-block;font-size:12px;border-radius:99px;padding:1px 8px;font-weight:600}
+.lunas{background:#d6f3e3;color:#0d6a42}.utang{background:#ffe3e7;color:#b3182f}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
+.nav button{flex:1;background:none;min-height:48px;padding:0 4px;font-size:14px}
+.nav button.on{background:var(--soft);font-weight:800}
+.fab{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--hi);color:#fff;font-weight:800;border-radius:99px;min-height:52px;padding:0 20px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.hero{background:var(--ink);color:var(--bg);border-radius:18px;padding:16px;margin:10px 0}
+.hero b{display:block;font-size:30px;font-weight:800;letter-spacing:-.02em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid .card{margin:0}.grid b{display:block;font-size:17px}
+.bar{height:6px;border-radius:99px;background:var(--line);margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:5}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}
+input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:8px 12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.prev{background:var(--soft);border-radius:12px;padding:10px 12px;margin:12px 0;font-weight:600}
+.primary{width:100%;background:var(--hi);color:#fff;font-weight:800;min-height:50px;margin-top:6px}
+.toast{position:fixed;left:12px;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;z-index:9;max-width:536px;margin:auto}
+.warn{background:#fff3c4;color:#5b4700;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px}
+.empty{text-align:center;color:var(--mute);padding:40px 10px}
+.found{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;cursor:zoom-in;border:1px solid var(--line)}
+.big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--soft);margin-top:6px}
+pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
+</style></head><body>
+<header><div><h1 id="tn"></h1><div class="sub" id="ts"></div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
+<main id="m"></main>
+<button class="fab" id="fab">+ Pesanan</button>
+<nav class="nav"><button data-t="q">Pesanan</button><button data-t="c">Daftar pembeli</button><button data-t="d">Trip</button></nav>
+<div id="ov"></div><div id="tt"></div>
 
-  // Your web app's Firebase configuration
-  const firebaseConfig = {
-    apiKey: "AIzaSyBX3GOOzJz5e32-VhK_RdXfRzSTnXqBjyk",
-    authDomain: "aplikasi-admin-jastip.firebaseapp.com",
-    projectId: "aplikasi-admin-jastip",
-    storageBucket: "aplikasi-admin-jastip.firebasestorage.app",
-    messagingSenderId: "652391383919",
-    appId: "1:652391383919:web:1e91cd54623cab61cc9e9a"
-  };
+<script>
+// =========================================================================
+// ⚠️ ISI KONFIGURASI DARI FIREBASE CONSOLE ANDA DI BAWAH INI:
+// =========================================================================
+const firebaseConfig = {
+  apiKey: "PASTE_API_KEY_DI_SINI",
+  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
+  projectId: "PASTE_PROJECT_ID",
+  storageBucket: "PASTE_PROJECT_ID.appspot.com",
+  messagingSenderId: "PASTE_MESSAGING_SENDER_ID",
+  appId: "PASTE_APP_ID"
+};
 
-  // Initialize Firebase
-  const app = initializeApp(firebaseConfig);
-</script>
+// Inisialisasi Firebase & Firestore
+let db = null;
+if (typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "PASTE_API_KEY_DI_SINI") {
+  try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+  } catch (err) {
+    console.error("Gagal inisialisasi Firebase:", err);
+  }
+}
+
+const CUR={JPY:['¥',110],KRW:['₩',11.6],SGD:['S$',12900],THB:['฿',490],HKD:['HK$',2100],USD:['$',16400],MYR:['RM',3900],TWD:['NT$',520],EUR:['€',19200],AUD:['A$',10900],CNY:['CN¥',2300]};
+const ST=['Dicari','Ketemu','Dibeli','Dibayar','OTW Indo','Done'];
+const CAT=['Skincare','Makeup','Obat & Vitamin','Snack & Makanan','Fashion','Lainnya'];
+const K='jastip-v1';
+const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1});
+
+let S = def();
+
+// Load data awal dari cache lokal
+try {
+  const localData = localStorage.getItem(K);
+  if (localData) S = Object.assign(def(), JSON.parse(localData));
+} catch(e) { S = def(); }
+
+// Fungsi Simpan (Lokal + Cloud Firestore)
+const save = () => {
+  try {
+    localStorage.setItem(K, JSON.stringify(S));
+  } catch(e) {
+    toast('Memori HP penuh, tersimpan secara online.', 3000);
+  }
+
+  if (db) {
+    db.collection('jastip').doc('appData').set(S).catch(err => {
+      console.error('Gagal simpan Firestore:', err);
+      toast('Gagal sinkronisasi online.', 3000);
+    });
+  }
+};
+
+// Sync Real-Time dari Firestore Online
+if (db) {
+  db.collection('jastip').doc('appData').onSnapshot((doc) => {
+    if (doc.exists) {
+      S = Object.assign(def(), doc.data());
+      try { localStorage.setItem(K, JSON.stringify(S)); } catch(e){}
+      render();
+    }
+  });
+}
+
+const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
+const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const idr=n=>'Rp '+Math.round(n).toLocaleString('id-ID');
+const rb=n=>n>=1e6?'Rp '+(n/1e6).toFixed(2).replace(/\.?0+$/,'').replace('.',',')+' jt':n>=1000?'Rp '+String(+(n/1000).toFixed(1)).replace('.',',')+'rb':idr(n);
+const num=v=>{const x=parseFloat(String(v).replace(',','.'));return isNaN(x)?0:x};
+const sym=c=>(CUR[c]||[c])[0];
+const fx=(n,c)=>sym(c)+' '+n.toLocaleString('id-ID',{maximumFractionDigits:2});
+const cust=id=>S.customers.find(c=>c.id===id)||{name:'(hapus)',wa:'',notes:''};
+const cost=o=>o.amt*o.qty*o.rate;
+const mk=o=>o.mt==='idr'?o.markup*o.qty:cost(o)*o.markup/100;
+const sell=o=>Math.ceil((cost(o)+mk(o))/500)*500;
+const paidOf=o=>o.paidAmt||0,sisa=o=>Math.max(0,sell(o)-paidOf(o));
+
+if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1;save()}
+const mkl=o=>o.mt==='idr'?'+'+idr(o.markup)+'/pcs':'+'+o.markup+'%';
+const bought=o=>o.status>=2;
+const waNum=n=>{n=String(n).replace(/\D/g,'');return n.startsWith('0')?'62'+n.slice(1):n.startsWith('8')?'62'+n:n};
+const waLink=(w,t)=>'https://wa.me/'+waNum(w)+'?text='+encodeURIComponent(t);
+
+function msg(o,st){const n=cust(o.cid).name,p=rb(sell(o)),i=o.item+(o.qty>1?' x'+o.qty:'');
+return [`Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
+`Halo ${n}, ${i} ketemu${o.store?' di '+o.store:''}! Harganya ${p}, konfirmasi ya?`,
+`Halo ${n}, ${i} sudah kubeli ✅ Total ${p}. Kalau belum transfer, ditunggu ya 🙏`,
+`Makasih ${n}! Pembayaran ${p} untuk ${i} sudah kuterima 💚`,
+`Halo ${n}, ${i} sudah OTW Indo ✈️ Nanti kukabarin lagi kalau sudah sampai ya!`,
+`Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, makasih banyak! 💚`][st]}
+const payMsg=(o,a)=>`Makasih ${cust(o.cid).name}! Pembayaran ${idr(a)} untuk ${o.item} sudah kuterima 💚 `+(sisa(o)>0?'Sisa '+idr(sisa(o))+' ya.':'Sudah lunas ✅')
+function toast(html,ms=6000){const t=$('#tt');t.innerHTML='<div class="toast">'+html+'</div>';clearTimeout(toast.h);toast.h=setTimeout(()=>t.innerHTML='',ms)}
+function sheet(html){$('#ov').innerHTML='<div class="scrim" id="sc"><div class="sheet" role="dialog">'+html+'</div></div>';$('#sc').onclick=ev=>{if(ev.target.id==='sc')close()}}
+const close=()=>{$('#ov').innerHTML=''};
+function reqStatus(id,i){const o=S.orders.find(x=>x.id===id);if(i===3&&sisa(o)>0)paySheet(id);else setStatus(id,i)}
+function setStatus(id,i){const o=S.orders.find(x=>x.id===id);o.status=i;save();render();
+toast(`<span>${ST[i]} ✔ ${e(cust(o.cid).name)}${i===5&&sisa(o)>0?' · masih sisa '+rb(sisa(o)):''}</span>`+(cust(o.cid).wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(cust(o.cid).wa,msg(o,i))}">Kabari WA</a>`:'<span class="fx">(belum ada nomor WA)</span>'))}
+function stat(list){const b=list.filter(bought),rev=b.reduce((s,o)=>s+sell(o),0),c=b.reduce((s,o)=>s+cost(o),0);
+const paid=list.reduce((s,o)=>s+paidOf(o),0);return{n:list.length,nb:b.length,rev,c,m:rev-c,paid,out:b.reduce((s,o)=>s+sisa(o),0),wait:list.filter(o=>!bought(o)).reduce((s,o)=>s+sell(o),0)}}
+
+function render(){
+$('#tn').textContent=S.trip.name;const s=stat(S.orders);$('#ts').textContent=S.orders.length+' pesanan · untung '+rb(s.m);
+document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
+$('#fab').style.display=S.tab==='c'?'none':'';
+$('#m').innerHTML=S.tab==='q'?vQ():S.tab==='c'?vC():vD();}
+
+function vQ(){
+const cn=i=>S.orders.filter(o=>i<0||o.status===i).length;
+let h='<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>';
+const L=S.orders.filter(o=>S.filter<0||o.status===S.filter).sort((a,b)=>b.ts-a.ts);
+if(!L.length)return h+`<div class="empty">${S.orders.length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div>`;
+return h+L.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
+return `<div class="card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
+<div class="fx">${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
+<div><div class="price">${idr(sell(o))}</div><div style="text-align:right">${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:32px;padding:0 10px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sebagian · sisa '+rb(sisa(o)):'Belum bayar'}</button>`:''}</div></div></div>
+<div class="steps">${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}">${t}</button>`).join('')}</div>
+<div class="acts">${nx?`<button class="go" data-s="${o.id}:${o.status+1}">${nx} ›</button>`:'<button class="go" style="background:var(--ok)" disabled>Selesai 🎉</button>'}
+${c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o.status))}">WA</a>`:''}
+<button data-eo="${o.id}" aria-label="Ubah">⋯</button></div></div>`}).join('')}
+
+function vC(){
+const add='<button class="primary" data-ec="">+ Pelanggan baru</button>';
+if(!S.customers.length)return add+'<div class="empty">Belum ada pelanggan. Tambah dulu biar gampang pas catat titipan.</div>';
+return add+S.customers.map(c=>{const os=S.orders.filter(o=>o.cid===c.id),t=stat(os);
+return `<div class="card"><div class="row"><div><div class="who">${e(c.name)}</div><div class="fx">${e(c.wa||'belum ada nomor WA')}</div></div>
+<div style="text-align:right"><div class="fx">${os.length} pesanan</div>${t.out>0?`<span class="tag utang">Utang ${rb(t.out)}</span>`:os.length?'<span class="tag lunas">Beres</span>':''}</div></div>
+${c.notes?`<div style="margin-top:6px">${e(c.notes)}</div>`:''}<div class="acts" style="margin-top:10px"><button data-ec="${c.id}" style="flex:1">Ubah</button>
+${c.wa&&t.out>0?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,tagih(c))}">Tagih</a>`:''}</div></div>`}).join('')}
+
+function tagih(c){const os=S.orders.filter(o=>o.cid===c.id&&bought(o)&&sisa(o)>0);
+return `Halo ${c.name}, ini rincian yang belum dibayar ya:\n`+os.map(o=>'• '+o.item+(o.qty>1?' x'+o.qty:'')+': '+(paidOf(o)>0?'sisa '+rb(sisa(o))+' (dari '+rb(sell(o))+')':rb(sell(o)))).join('\n')+`\nTotal ${idr(os.reduce((x,o)=>x+sisa(o),0))}. Makasih banyak 🙏`}
+function paySheet(id){const o=S.orders.find(x=>x.id===id),c=cust(o.cid),p=paidOf(o),r=sisa(o);
+sheet(`<h1>Pembayaran</h1><div class="sub">${e(c.name)} · ${e(o.item)}</div>
+<div class="prev">Total ${idr(sell(o))}<br>Sudah dibayar ${idr(p)}<br><b>Sisa ${idr(r)}</b></div>
+${r>0?`<button class="primary" id="pf">Bayar penuh (${idr(r)})</button><label>Atau bayar sebagian (nominal Rp)</label><input id="pn" inputmode="numeric" placeholder="mis. 100000"><button class="primary" id="pp" style="background:var(--ink);color:var(--bg)">Catat pembayaran sebagian</button>`:'<div class="prev">Sudah lunas 🎉</div>'}
+${p>0?'<button style="width:100%;margin-top:10px;color:var(--hi)" id="pz">Salah catat? Reset pembayaran</button>':''}`);
+const apply=a=>{const x=Math.min(a,r);o.paidAmt=p+x;if(sisa(o)<=0&&o.status<3)o.status=3;save();close();render();
+toast(`<span>${sisa(o)>0?'Tercatat sebagian ✔ sisa '+rb(sisa(o)):'Lunas ✔'}</span>`+(c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,payMsg(o,x))}">Kabari WA</a>`:''))};
+if(r>0){$('#pf').onclick=()=>apply(r);$('#pp').onclick=()=>{const a=Math.round(num(String($('#pn').value).replace(/\./g,'')));if(a<=0)return toast('Isi nominalnya dulu ya',2500);apply(a)}}
+if(p>0)$('#pz').onclick=()=>{const b=$('#pz');if(!b.dataset.s){b.dataset.s=1;return b.textContent='Yakin? Ketuk lagi untuk reset ke Rp 0'}o.paidAmt=0;if(o.status===3)o.status=2;save();close();render()}}
+
+function byCust(){return S.customers.map(c=>({c,...stat(S.orders.filter(o=>o.cid===c.id))})).filter(x=>x.n)}
+function topCat(){const m={};S.orders.filter(bought).forEach(o=>m[o.cat]=(m[o.cat]||0)+sell(o));const a=Object.entries(m).sort((x,y)=>y[1]-x[1])[0];return a?a[0]:'-'}
+function summary(){const s=stat(S.orders),bc=byCust().sort((a,b)=>b.rev-a.rev)[0];
+return `✈️ Rekap ${S.trip.name}\n\nPesanan dibeli: ${s.nb} dari ${s.n}\nSudah Done (terkirim): ${S.orders.filter(o=>o.status===5).length}\nOmzet: ${idr(s.rev)}\nModal: ${idr(s.c)}\nUntung bersih: ${idr(s.m)}${s.rev?' ('+(s.m/s.rev*100).toFixed(1).replace('.',',')+'%)':''}\nUang masuk: ${idr(s.paid)}\nBelum dibayar: ${idr(s.out)}\nPelanggan teratas: ${bc&&bc.rev?bc.c.name+' ('+rb(bc.rev)+')':'-'}\nKategori terlaris: ${topCat()}`}
+
+function vD(){const s=stat(S.orders),bc=byCust().sort((a,b)=>b.rev-a.rev),mx=Math.max(1,...bc.map(x=>x.rev));
+const used=[...new Set(S.orders.map(o=>o.cur).concat(S.trip.cur))];
+return `${S.ratesAt?'':'<div class="warn">Kurs masih angka perkiraan. Cek & isi kurs asli di bawah sebelum mulai belanja ya.</div>'}
+<div class="hero"><span class="sub" style="color:inherit;opacity:.75">Untung bersih (barang yang sudah dibeli)</span><b>${idr(s.m)}</b>
+<span style="opacity:.8">Omzet ${idr(s.rev)} − modal ${idr(s.c)}</span></div>
+<div class="grid"><div class="card"><span class="fx">Total pesanan</span><b>${s.n} <span class="fx">(${s.nb} dibeli)</span></b></div>
+<div class="card"><span class="fx">Uang masuk</span><b>${idr(s.paid)}</b></div>
+<div class="card"><span class="fx">Belum dibayar</span><b style="color:var(--hi)">${idr(s.out)}</b></div>
+<div class="card"><span class="fx">Masih dicari/belum dibeli</span><b>${idr(s.wait)}</b></div></div>
+<h2>Per pelanggan</h2>${bc.length?bc.map(x=>`<div class="card"><div class="row"><span class="who">${e(x.c.name)}</span><span><b>${idr(x.rev)}</b></span></div>
+<div class="fx">${x.n} pesanan · untung ${rb(x.m)}${x.out>0?' · utang '+rb(x.out):''}</div><div class="bar"><i style="width:${x.rev/mx*100}%"></i></div></div>`).join(''):'<div class="sub">Belum ada data.</div>'}
+<h2>Kurs (Rp per 1 mata uang)</h2><div class="card">${used.map(c=>`<label>${c}</label><input inputmode="decimal" data-r="${c}" value="${S.rates[c]??''}">`).join('')}
+<button class="primary" style="background:var(--ink);color:var(--bg)" id="live">Coba ambil kurs terbaru</button>
+<div class="fx" style="margin-top:6px">${S.ratesAt?'Terakhir diatur: '+S.ratesAt:'Belum pernah diatur'}. Kurs tiap pesanan dikunci saat dicatat, jadi ganti kurs nggak mengubah pesanan lama.</div></div>
+<h2>Akhir trip</h2><pre>${e(summary())}</pre>
+<div class="acts"><a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(summary())}" style="flex:1">Bagikan ke WA</a><button id="bak">Simpan cadangan</button></div>
+<button class="primary" style="background:var(--soft);color:var(--ink);margin-top:10px" id="newtrip">Tutup trip & mulai trip baru</button>`}
+
+function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct'};
+let photo=o.photo||'';
+sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
+<label>Pelanggan</label><select id="f-c">${S.customers.map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
+<div id="nc" hidden><label>Nama pelanggan baru</label><input id="f-nn" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="f-nw" inputmode="tel" placeholder="0812…"></div>
+<label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
+<label>Toko</label><input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi">
+<label>Kategori</label><select id="f-k">${CAT.map(k=>`<option ${k===o.cat?'selected':''}>${k}</option>`).join('')}</select>
+<div class="two"><div><label>Mata uang</label><select id="f-u">${Object.keys(S.rates).map(c=>`<option ${c===o.cur?'selected':''}>${c}</option>`).join('')}</select></div>
+<div><label>Harga per pcs</label><input id="f-a" inputmode="decimal" value="${o.amt}"></div></div>
+<label>Jumlah</label><input id="f-q" inputmode="numeric" value="${o.qty}">
+<label>Markup (untung)</label><div class="two"><select id="f-mt"><option value="pct" ${o.mt!=='idr'?'selected':''}>Persen (%)</option><option value="idr" ${o.mt==='idr'?'selected':''}>Nominal (Rp per pcs)</option></select><input id="f-m" inputmode="decimal" value="${o.markup}" aria-label="Besar markup"></div>
+<label>Foto produk</label><div id="pb"></div>
+<input type="file" id="p-cam" accept="image/*" capture="environment" hidden><input type="file" id="p-gal" accept="image/*" hidden>
+<div class="prev" id="pv"></div>
+<button class="primary" id="f-ok">${id?'Simpan':'Catat pesanan'}</button>
+<div id="sr"></div>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="del">Hapus pesanan</button>':''}`);
+const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]\vert{}\vert{}0,a=num($('#f-a').value)*Math.max(1,num($('#f-q').value))*r,m=num($('#f-m').value),t=$('#f-mt').value,p=Math.ceil((a+(t==='idr'?m*Math.max(1,num($('#f-q').value)):a*m/100))/500)*500;
+$('#pv').innerHTML=a?`Modal ≈ ${idr(a)}<br>Jual ${idr(p)} <span class="fx">(untung ${idr(p-a)})</span>`:'Isi harga dulu, nanti kuhitungin ke rupiah.'};
+['f-u','f-a','f-q','f-m','f-mt'].forEach(i=>$('#'+i).oninput=pv);pv();
+$('#f-mt').onchange=()=>{const i=$('#f-m'),n=num(i.value),t=$('#f-mt').value;if(t==='idr'&&n<1000)i.value='';if(t==='pct'&&n>100)i.value=S.trip.mt==='pct'?S.trip.markup:15;pv()};
+const paint=()=>{$('#pb').innerHTML=photo?`<img class="big" src="${photo}" alt="Foto produk"><button id="pr" style="width:100%;margin-top:6px">Hapus foto</button>`:'<div class="two"><button id="pc">📷 Kamera</button><button id="pg">🖼 Galeri</button></div>';
+if(photo)$('#pr').onclick=()=>{photo='';paint()};else{$('#pc').onclick=()=>$('#p-cam').click();$('#pg').onclick=()=>$('#p-gal').click()}};
+const pick=async ev=>{const f=ev.target.files[0];if(!f)return;try{photo=await shrink(f);paint()}catch(x){toast('Fotonya nggak bisa dibuka, coba foto lain ya',3000)}};
+$('#p-cam').onchange=pick;$('#p-gal').onchange=pick;paint();
+$('#f-c').onchange=()=>{$('#nc').hidden=$('#f-c').value!=='+'};$('#nc').hidden=$('#f-c').value!=='+';
+$('#f-ok').onclick=()=>{let cid=$('#f-c').value;
+if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelanggannya dulu ya',2500);cid=uid();S.customers.push({id:cid,name:n,wa:$('#f-nw').value.trim(),notes:''})}
+if(!cid)return toast('Pilih pelanggan dulu ya',2500);
+const item=$('#f-i').value.trim(),amt=num($('#f-a').value);if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
+const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diisi',2500);
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo};
+if(id){const x=S.orders.find(z=>z.id===id);if(x.cur!==cur||x.amt!==amt&&false)d.rate=S.rates[cur];Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
+else S.orders.push({...d,id:uid(),rate:S.rates[cur],status:0,paidAmt:0,ts:Date.now()});
+S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
+if(id){$('#del').onclick=()=>{if($('#del').dataset.s){S.orders=S.orders.filter(x=>x.id!==id);save();close();render()}else{$('#del').dataset.s=1;$('#del').textContent='Yakin hapus? Ketuk lagi'}}}
+}
+
+function shrink(f){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const i=new Image();i.onerror=rej;i.onload=()=>{const k=Math.min(1,640/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};i.src=r.result};r.readAsDataURL(f)})}
+function custSheet(id){const c=S.customers.find(x=>x.id===id)||{name:'',wa:'',notes:''};
+sheet(`<h1>${id?'Ubah pelanggan':'Pelanggan baru'}</h1><label>Nama</label><input id="c-n" value="${e(c.name)}" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="c-w" inputmode="tel" value="${e(c.wa)}" placeholder="0812…">
+<label>Catatan (barang favorit, cara antar)</label><textarea id="c-t" rows="3">${e(c.notes)}</textarea><button class="primary" id="c-ok">Simpan</button>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="c-del">Hapus pelanggan</button>':''}`);
+$('#c-ok').onclick=()=>{const n=$('#c-n').value.trim();if(!n)return toast('Nama wajib diisi',2500);const d={name:n,wa:$('#c-w').value.trim(),notes:$('#c-t').value.trim()};
+id?Object.assign(c,d):S.customers.push({id:uid(),...d});save();close();render()};
+if(id)$('#c-del').onclick=()=>{const b=$('#c-del');if(S.orders.some(o=>o.cid===id))return b.textContent='Masih punya pesanan, hapus pesanannya dulu';if(!b.dataset.s){b.dataset.s=1;return b.textContent='Yakin hapus? Ketuk lagi'}S.customers=S.customers.filter(x=>x.id!==id);save();close();render()}}
+
+function tripSheet(){sheet(`<h1>Atur trip</h1><label>Nama trip</label><input id="t-n" value="${e(S.trip.name)}" placeholder="mis. Osaka Oktober">
+<label>Markup standar</label><div class="two"><select id="t-mt"><option value="pct" ${S.trip.mt!=='idr'?'selected':''}>Persen (%)</option><option value="idr" ${S.trip.mt==='idr'?'selected':''}>Nominal (Rp per pcs)</option></select><input id="t-m" inputmode="decimal" value="${S.trip.markup}" aria-label="Besar markup standar"></div><button class="primary" id="t-ok">Simpan</button>`);
+$('#t-ok').onclick=()=>{S.trip.name=$('#t-n').value.trim()||'Trip baru';S.trip.markup=num($('#t-m').value);S.trip.mt=$('#t-mt').value;save();close();render()}}
+
+document.addEventListener('click',ev=>{const z=ev.target.closest('[data-z]');if(z){const o=S.orders.find(x=>x.id===z.dataset.z);if(o)sheet(`<div class="who">${e(o.item)}</div><img class="big" style="max-height:70vh" src="${o.photo}" alt="Foto ${e(o.item)}"><button class="primary" id="zc">Tutup</button>`);return}
+const t=ev.target.closest('button');if(!t)return;const d=t.dataset;
+if(t.id==='zc')return close();
+if(d.t){S.tab=d.t;save();render()}else if(d.f){S.filter=+d.f;render()}
+else if(d.s){const[i,n]=d.s.split(':');reqStatus(i,+n)}else if(d.pay)paySheet(d.pay);else if(d.eo)orderSheet(d.eo);else if(d.ec!==undefined)custSheet(d.ec);
+else if(t.id==='fab')orderSheet();else if(t.id==='gear')tripSheet();
+else if(t.id==='bak'){
+  const jsonStr = JSON.stringify(S, null, 2);
+  const blob = new Blob([jsonStr], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'jastip-cadangan.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+else if(t.id==='newtrip'){if(!t.dataset.s){t.dataset.s=1;t.textContent='Yakin? Pesanan direset, pelanggan tetap. Ketuk lagi';return}
+S.history.push({name:S.trip.name,summary:summary()});S.orders=[];S.trip.name='Trip baru';S.filter=-1;S.tab='q';save();render()}
+else if(t.id==='live')live(t)});
+
+document.addEventListener('input',ev=>{const c=ev.target.dataset.r;if(c){S.rates[c]=num(ev.target.value);S.ratesAt=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});save()}});
+
+async function live(b){b.textContent='Lagi ambil kurs…';try{const ac=new AbortController();setTimeout(()=>ac.abort(),7000);
+const j=await (await fetch('https://open.er-api.com/v6/latest/IDR',{signal:ac.signal})).json();
+Object.keys(S.rates).forEach(c=>{if(j.rates&&j.rates[c])S.rates[c]=Math.round(1/j.rates[c]*100)/100});
+S.ratesAt=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})+' (otomatis)';save();render();toast('Kurs terbaru masuk ✔',3000)}
+catch(er){b.textContent='Coba ambil kurs terbaru';toast('Kurs otomatis belum bisa diambil di sini. Isi manual ya.',4500)}}
+
+render();
+</script></body></html>
