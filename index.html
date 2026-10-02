@@ -426,16 +426,21 @@
 </head>
 <body>
     <header class="max-w-[600px] mx-auto pt-4 px-4 pb-2 flex justify-between items-center gap-2">
-        <div>
-            <h1 id="tn" class="text-xl font-extrabold tracking-tight">Catatan Jastip</h1>
-            <div class="sub text-xs font-medium text-slate-500 dark:text-slate-400" id="ts">Loading data...</div>
+        <div class="flex items-center gap-2">
+            <!-- Tombol Kembali ke Dashboard Utama -->
+            <button id="btn-back-dash" class="bg-slate-200 dark:bg-slate-700 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1">
+                <span>⬅️</span> <span>Dashboard</span>
+            </button>
+            <div>
+                <h1 id="tn" class="text-base font-extrabold tracking-tight leading-tight">Catatan Jastip</h1>
+                <div class="sub text-[11px] font-medium text-slate-500 dark:text-slate-400" id="ts">Loading...</div>
+            </div>
         </div>
-        <div class="flex gap-2">
-            <!-- Tombol Packing List Atas -->
+        <div class="flex gap-1.5">
             <button id="btn-packing" class="bg-emerald-600 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow-sm hover:bg-emerald-700">
                 <span>🧳</span> <span>Packing</span>
             </button>
-            <button id="gear" class="bg-slate-200 dark:bg-slate-700 font-bold text-xs px-3 py-2 rounded-xl" aria-label="Atur trip">Atur Trip</button>
+            <button id="gear" class="bg-slate-200 dark:bg-slate-700 font-bold text-xs px-2.5 py-2 rounded-xl" aria-label="Atur trip">⚙️</button>
         </div>
     </header>
 
@@ -488,12 +493,14 @@
             tab: 'q',
             filter: -1,
             searchQuery: '',
-            packFilter: 'all' // 'all', 'unpacked', 'packed'
+            packFilter: 'all',
+            selectedCargoIds: [] // Menyimpan id item yang dicentang untuk kargo
         });
 
         let S;
         try {
             S = Object.assign(def(), JSON.parse(localStorage.getItem(K) || '{}'));
+            if (!S.selectedCargoIds) S.selectedCargoIds = [];
         } catch (e) {
             S = def();
         }
@@ -644,20 +651,20 @@
             }).join('');
         }
 
-        /* FITUR PACKING LIST WITH KOPER / KARGO & EXPORT PDF */
+        /* FITUR PACKING LIST & EKSPOR PDF KARGO DENGAN 1 RESI */
         function vP() {
             const boughtOrders = S.orders.filter(bought);
             const total = boughtOrders.length;
             const packedCount = boughtOrders.filter(o => o.packed).length;
             const pct = total ? Math.round((packedCount / total) * 100) : 0;
 
-            const totalKoper = boughtOrders.filter(o => (o.packMethod || 'koper') === 'koper').length;
-            const totalKargo = boughtOrders.filter(o => o.packMethod === 'kargo').length;
+            const cargoOrders = boughtOrders.filter(o => o.packMethod === 'kargo');
+            const totalCargo = cargoOrders.length;
 
             let filterMode = S.packFilter || 'all';
             let filtered = boughtOrders;
-            if (filterMode === 'unpacked') filtered = boughtOrders.filter(o => !o.packed);
-            else if (filterMode === 'packed') filtered = boughtOrders.filter(o => o.packed);
+            if (filterMode === 'kargo') filtered = cargoOrders;
+            else if (filterMode === 'koper') filtered = boughtOrders.filter(o => (o.packMethod || 'koper') === 'koper');
 
             // Grouping berdasarkan Pelanggan
             const groups = {};
@@ -666,28 +673,30 @@
                 groups[o.cid].push(o);
             });
 
+            const selectedCount = S.selectedCargoIds.length;
+
             let html = `
                 <div class="hero mb-4">
                     <div class="flex justify-between items-start gap-2">
                         <div>
-                            <span class="sub" style="color:inherit;opacity:.8">🧳 Checklist Packing & Pengiriman</span>
-                            <b>${packedCount} / ${total} Barang Siap</b>
+                            <span class="sub" style="color:inherit;opacity:.8">📦 Pengiriman & Packing Kargo</span>
+                            <b>${totalCargo} Barang Kargo</b>
                         </div>
-                        <button id="btn-export-pdf" class="bg-red-500 hover:bg-red-600 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow">
-                            <span>📄</span> <span>Export PDF</span>
+                        <button id="btn-open-cargo-export" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-extrabold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow">
+                            <span>📄</span> <span>Export PDF Kargo (${selectedCount})</span>
                         </button>
                     </div>
                     <div class="bar mt-2"><i style="width:${pct}%; background:var(--ok)"></i></div>
                     <div class="text-xs opacity-90 mt-2 flex justify-between">
-                        <span>${pct}% barang telah siap</span>
-                        <span><b>${totalKoper}</b> Koper · <b>${totalKargo}</b> Kargo</span>
+                        <span>Pilih/centang barang kargo untuk digabung ke <b>1 Resi</b></span>
+                        <span><b>${selectedCount}</b> dicentang</span>
                     </div>
                 </div>
 
                 <div class="chips mb-3">
                     <button class="chip ${filterMode === 'all' ? 'on' : ''}" data-pf="all">Semua (${total})</button>
-                    <button class="chip ${filterMode === 'unpacked' ? 'on' : ''}" data-pf="unpacked">Belum Siap (${total - packedCount})</button>
-                    <button class="chip ${filterMode === 'packed' ? 'on' : ''}" data-pf="packed">Sudah Siap (${packedCount})</button>
+                    <button class="chip ${filterMode === 'kargo' ? 'on' : ''}" data-pf="kargo">📦 Khusus Kargo (${totalCargo})</button>
+                    <button class="chip ${filterMode === 'koper' ? 'on' : ''}" data-pf="koper">🧳 Masuk Koper (${total - totalCargo})</button>
                 </div>
             `;
 
@@ -702,41 +711,32 @@
             Object.keys(groups).forEach(cid => {
                 const c = cust(cid);
                 const items = groups[cid];
-                const custKoper = items.filter(x => (x.packMethod || 'koper') === 'koper').length;
-                const custKargo = items.filter(x => x.packMethod === 'kargo').length;
 
                 html += `
                     <div class="card">
                         <div class="row mb-2 border-b border-slate-100 dark:border-slate-800 pb-2">
                             <div class="who text-base">${e(c.name)}</div>
-                            <span class="fx">${items.filter(x => x.packed).length}/${items.length} Siap (${custKoper} Koper, ${custKargo} Kargo)</span>
+                            <span class="fx">${items.length} Barang</span>
                         </div>
                         ${items.map(o => {
                             const method = o.packMethod || 'koper';
+                            const isCheckedForCargo = S.selectedCargoIds.includes(o.id);
                             return `
                             <div class="pack-item ${o.packed ? 'packed' : ''}">
-                                <input type="checkbox" class="pack-checkbox" data-pk="${o.id}" ${o.packed ? 'checked' : ''}>
+                                <div class="flex flex-col items-center gap-1">
+                                    <input type="checkbox" class="pack-checkbox" data-cargo-check="${o.id}" ${isCheckedForCargo ? 'checked' : ''} title="Centang untuk gabung ke Resi Kargo">
+                                    <span class="text-[9px] font-bold text-slate-400">Resi</span>
+                                </div>
                                 ${o.photo ? `<img class="thumb" style="width:48px;height:48px" src="${o.photo}" data-z="${o.id}" alt="Foto">` : ''}
                                 <div style="flex:1" class="min-w-0">
                                     <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${e(o.item)} ${o.qty > 1 ? '<span class="text-blue-600 font-extrabold">x' + o.qty + '</span>' : ''}</div>
-                                    <div class="fx mb-2">${e(o.store || 'Toko tak dicatat')} · <span class="tag ${o.status === 5 ? 'lunas' : 'utang'}">${ST[o.status]}</span></div>
+                                    <div class="fx mb-1">${e(o.store || 'Toko tak dicatat')}</div>
 
-                                    <!-- Pengaturan Koper vs Kargo -->
-                                    <div class="space-y-1.5 mt-1">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-xs font-semibold text-slate-500">Metode:</span>
-                                            <select class="text-xs font-bold py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" data-pm="${o.id}">
-                                                <option value="koper" ${method === 'koper' ? 'selected' : ''}>🧳 Masuk Koper</option>
-                                                <option value="kargo" ${method === 'kargo' ? 'selected' : ''}>📦 Pengiriman Kargo</option>
-                                            </select>
-                                        </div>
-
-                                        ${method === 'kargo' ? `
-                                            <div class="mt-1">
-                                                <input type="text" class="text-xs py-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 w-full"
-                                                       data-resi="${o.id}" value="${e(o.cargoResi || '')}" placeholder="📝 Masukkan No. Resi Kargo...">
-                                            </div>
-                                        ` : ''}
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <select class="text-xs font-bold py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" data-pm="${o.id}">
+                                            <option value="kargo" ${method === 'kargo' ? 'selected' : ''}>📦 Pengiriman Kargo</option>
+                                            <option value="koper" ${method === 'koper' ? 'selected' : ''}>🧳 Masuk Koper</option>
+                                        </select>
                                     </div>
                                 </div>
                             </div>
@@ -748,48 +748,122 @@
             return html;
         }
 
-        /* Fungsi Cetak / Generate PDF Packing List */
-        function exportPackingPDF() {
-            const boughtOrders = S.orders.filter(bought);
-            if (!boughtOrders.length) return toast('Belum ada barang dibeli untuk dicetak ke PDF.', 3000);
+        /* MODAL EKSPOR PDF KARGO (1 RESI) & SHARE */
+        function openCargoExportModal() {
+            const selectedOrders = S.orders.filter(o => S.selectedCargoIds.includes(o.id));
 
+            if (!selectedOrders.length) {
+                return toast('Centang minimal 1 barang kargo yang ingin dimasukkan ke dalam resi ini!', 3500);
+            }
+
+            // Mencari default nomor resi yang sudah diisi jika ada
+            const existingResi = selectedOrders.find(o => o.cargoResi)?.cargoResi || '';
+
+            sheet(`
+                <h1 class="text-xl font-extrabold mb-1">📦 Export PDF Kargo (1 Resi)</h1>
+                <div class="sub text-xs text-slate-500 mb-3">${selectedOrders.length} barang dipilih untuk dikirim dalam 1 resi.</div>
+
+                <label>Nomor Resi Kargo Pengiriman</label>
+                <input id="cargo-resi-input" class="font-bold text-base text-blue-600" value="${e(existingResi)}" placeholder="Contoh: KG-2026-9988X">
+
+                <div class="prev">
+                    <div class="font-bold mb-1 text-slate-800 dark:text-slate-200">Barang dalam Resi ini:</div>
+                    <ul class="list-disc pl-4 text-xs space-y-1 max-h-40 overflow-y-auto">
+                        ${selectedOrders.map(o => `<li><b>${e(cust(o.cid).name)}</b>: ${e(o.item)} (x${o.qty})</li>`).join('')}
+                    </ul>
+                </div>
+
+                <div class="space-y-2 mt-4">
+                    <button class="primary flex items-center justify-center gap-2" id="btn-do-print-pdf">
+                        <span>💾</span> <span>Simpan File / Cetak PDF</span>
+                    </button>
+                    <button class="primary flex items-center justify-center gap-2" style="background:#25d366; color:#04391a" id="btn-do-share-cargo">
+                        <span>📲</span> <span>Bagikan Rincian (Share / WA)</span>
+                    </button>
+                    <button style="width:100%; background:var(--line); color:var(--ink)" id="btn-close-modal">
+                        ⬅️ Kembali
+                    </button>
+                </div>
+            `);
+
+            $('#btn-do-print-pdf').onclick = () => {
+                const resi = $('#cargo-resi-input').value.trim();
+                if (!resi) return toast('Masukkan nomor resi kargo terlebih dahulu!', 2500);
+
+                // Update nomor resi ke orderan yang terpilih
+                selectedOrders.forEach(o => o.cargoResi = resi);
+                save();
+
+                generateCargoPDF(resi, selectedOrders);
+            };
+
+            $('#btn-do-share-cargo').onclick = () => {
+                const resi = $('#cargo-resi-input').value.trim() || 'BELUM ADA RESI';
+                shareCargoText(resi, selectedOrders);
+            };
+
+            $('#btn-close-modal').onclick = () => close();
+        }
+
+        /* GENERATE PRINTABLE PDF KHUSUS KARGO (1 RESI) */
+        function generateCargoPDF(resi, orders) {
+            const printWin = window.open('', '_blank');
+            if (!printWin) return toast('Gagal membuka jendela cetak. Izinkan pop-up di browser Anda.', 3000);
+
+            // Grouping item per pelanggan
             const groups = {};
-            boughtOrders.forEach(o => {
+            orders.forEach(o => {
                 if (!groups[o.cid]) groups[o.cid] = [];
                 groups[o.cid].push(o);
             });
 
-            const printWin = window.open('', '_blank');
+            const totalItems = orders.reduce((s, o) => s + (o.qty || 1), 0);
+
             let content = `
             <!DOCTYPE html>
             <html lang="id">
             <head>
                 <meta charset="utf-8">
-                <title>Packing List - ${e(S.trip.name)}</title>
+                <title>Packing List Kargo - Resi ${e(resi)}</title>
                 <style>
-                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #0f172a; line-height: 1.4; }
-                    .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
-                    .title { font-size: 20px; font-weight: bold; margin: 0; color: #1e293b; }
+                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 24px; color: #0f172a; line-height: 1.4; }
+                    .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+                    .title { font-size: 22px; font-weight: 800; color: #1e293b; margin: 0; }
+                    .resi-box { background: #fef3c7; border: 2px dashed #f59e0b; padding: 10px 16px; border-radius: 8px; text-align: right; }
+                    .resi-label { font-size: 11px; text-transform: uppercase; font-weight: bold; color: #b45309; }
+                    .resi-num { font-size: 18px; font-weight: 800; color: #92400e; }
                     .meta { font-size: 12px; color: #64748b; margin-top: 4px; }
-                    .cust-block { margin-bottom: 22px; page-break-inside: avoid; }
-                    .cust-name { font-size: 14px; font-weight: bold; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb; }
+                    .cust-block { margin-bottom: 20px; page-break-inside: avoid; }
+                    .cust-name { font-size: 14px; font-weight: bold; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb; }
                     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
-                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
                     th { background: #f8fafc; font-weight: bold; color: #334155; }
-                    .tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
-                    .koper { background: #e0f2fe; color: #0369a1; }
-                    .kargo { background: #fef3c7; color: #b45309; }
-                    .status-ok { color: #16a34a; font-weight: bold; }
-                    .status-wait { color: #ca8a04; font-weight: bold; }
+                    .summary { margin-top: 24px; border-top: 2px solid #e2e8f0; pt: 12px; font-size: 12px; display: flex; justify-content: space-between; color: #475569; }
                     @media print {
                         body { padding: 0; }
+                        .no-print { display: none !important; }
                     }
                 </style>
             </head>
             <body>
+                <div class="no-print" style="margin-bottom:20px; padding:12px; background:#e0f2fe; border-radius:8px; display:flex; justify-between; align-items:center;">
+                    <span style="font-weight:bold; font-size:13px; color:#0369a1;">📄 Dokumen Packing List Kargo Siap Dicetak / Disimpan ke PDF</span>
+                    <button onclick="window.print()" style="background:#2563eb; color:white; border:none; padding:8px 16px; font-weight:bold; border-radius:6px; cursor:pointer;">💾 Simpan PDF / Cetak</button>
+                </div>
+
                 <div class="header">
-                    <div class="title">🧳 Packing & Cargo List - ${e(S.trip.name)}</div>
-                    <div class="meta">Dicetak: ${new Date().toLocaleString('id-ID')} · Total ${boughtOrders.length} Barang Dibeli</div>
+                    <div>
+                        <div class="title">📦 PACKING LIST PENGIRIMAN KARGO</div>
+                        <div class="meta">Trip: <b>${e(S.trip.name)}</b> · Tanggal: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}</div>
+                    </div>
+                    <div class="resi-box">
+                        <div class="resi-label">Nomor Resi Kargo</div>
+                        <div class="resi-num">${e(resi)}</div>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:16px; font-size:13px;">
+                    Total Kategori Pelanggan: <b>${Object.keys(groups).length}</b> · Total Barang: <b>${totalItems} pcs</b>
                 </div>
             `;
 
@@ -798,29 +872,25 @@
                 const items = groups[cid];
                 content += `
                 <div class="cust-block">
-                    <div class="cust-name">Pelanggan: ${e(c.name)} ${c.wa ? ' (' + e(c.wa) + ')' : ''}</div>
+                    <div class="cust-name">Penerima / Pelanggan: ${e(c.name)} ${c.wa ? ' (' + e(c.wa) + ')' : ''}</div>
                     <table>
                         <thead>
                             <tr>
-                                <th style="width:30px; text-align:center;">Siap</th>
-                                <th>Nama Barang</th>
-                                <th style="width:40px; text-align:center;">Qty</th>
-                                <th style="width:110px;">Metode Packing</th>
-                                <th>No. Resi Kargo / Catatan</th>
+                                <th style="width:30px; text-align:center;">No</th>
+                                <th>Nama Barang / Produk</th>
+                                <th>Toko / Asal</th>
+                                <th style="width:50px; text-align:center;">Qty</th>
+                                <th>Catatan Khusus</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${items.map(o => `
+                            ${items.map((o, idx) => `
                                 <tr>
-                                    <td style="text-align:center;">${o.packed ? '<span class="status-ok">✔</span>' : '<span class="status-wait">⏳</span>'}</td>
-                                    <td><b>${e(o.item)}</b><br><small style="color:#64748b;">${e(o.store || '-')}</small></td>
-                                    <td style="text-align:center;"><b>${o.qty}</b></td>
-                                    <td>
-                                        <span class="tag ${o.packMethod === 'kargo' ? 'kargo' : 'koper'}">
-                                            ${o.packMethod === 'kargo' ? '📦 Kargo' : '🧳 Koper'}
-                                        </span>
-                                    </td>
-                                    <td>${o.packMethod === 'kargo' ? (e(o.cargoResi) || '<i style="color:#94a3b8;">Belum ada resi</i>') : '-'}</td>
+                                    <td style="text-align:center;">${idx + 1}</td>
+                                    <td><b>${e(o.item)}</b></td>
+                                    <td>${e(o.store || '-')}</td>
+                                    <td style="text-align:center; font-weight:bold; font-size:13px;">${o.qty}</td>
+                                    <td>${e(c.notes || '-')}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -830,6 +900,10 @@
             });
 
             content += `
+                <div class="summary">
+                    <div>Dokumen otomatis dibuat dari Sistem Catatan Jastip.</div>
+                    <div>Halaman 1 / 1</div>
+                </div>
                 <script>
                     window.onload = function() { window.print(); }
                 <\/script>
@@ -839,6 +913,29 @@
 
             printWin.document.write(content);
             printWin.document.close();
+        }
+
+        /* BAGIKAN RINGKASAN KARGO (SHARE / WA) */
+        function shareCargoText(resi, orders) {
+            let txt = `📦 *PACKING LIST KARGO*\n` +
+                `No. Resi: *${resi}*\n` +
+                `Trip: ${S.trip.name}\n\n` +
+                `*Daftar Barang (${orders.length} Jenis):*\n`;
+
+            orders.forEach((o, idx) => {
+                txt += `${idx + 1}. [${cust(o.cid).name}] ${o.item} (x${o.qty})\n`;
+            });
+
+            txt += `\nTotal barang dikirim dalam resi ini. Terima kasih! 🙏`;
+
+            if (navigator.share) {
+                navigator.share({
+                    title: `Packing List Kargo - ${resi}`,
+                    text: txt
+                }).catch(() => {});
+            } else {
+                window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
+            }
         }
 
         function vC() {
@@ -1003,7 +1100,7 @@
         function orderSheet(id) {
             const o = S.orders.find(x => x.id === id) || {
                 cid: S.customers[0]?.id || '', item: '', store: '', cat: CAT[0],
-                cur: S.trip.cur, amt: '', qty: 1, markup: S.trip.markup, mt: S.trip.mt || 'pct', packed: false, packMethod: 'koper', cargoResi: ''
+                cur: S.trip.cur, amt: '', qty: 1, markup: S.trip.markup, mt: S.trip.mt || 'pct', packed: false, packMethod: 'kargo', cargoResi: ''
             };
             let photo = o.photo || '';
 
@@ -1135,7 +1232,7 @@
                     Object.assign(x, d);
                     if (!x.rate || x.cur !== cur) x.rate = S.rates[cur];
                 } else {
-                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, packMethod: 'koper', cargoResi: '', ts: Date.now() });
+                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, packMethod: 'kargo', cargoResi: '', ts: Date.now() });
                 }
 
                 S.trip.cur = cur;
@@ -1150,6 +1247,7 @@
                     const b = $('#del');
                     if (b.dataset.s) {
                         S.orders = S.orders.filter(x => x.id !== id);
+                        S.selectedCargoIds = S.selectedCargoIds.filter(x => x !== id);
                         save(); close(); render();
                     } else {
                         b.dataset.s = 1;
@@ -1238,32 +1336,22 @@
             };
         }
 
-        // Event Listener khusus Checkbox & Metode Packing & Resi
+        // Event Listener khusus Checkbox Kargo & Metode Packing
         document.addEventListener('change', ev => {
-            if (ev.target.dataset.pk) {
-                const id = ev.target.dataset.pk;
-                const o = S.orders.find(x => x.id === id);
-                if (o) {
-                    o.packed = ev.target.checked;
-                    save(); render();
+            if (ev.target.dataset.cargoCheck) {
+                const id = ev.target.dataset.cargoCheck;
+                if (ev.target.checked) {
+                    if (!S.selectedCargoIds.includes(id)) S.selectedCargoIds.push(id);
+                } else {
+                    S.selectedCargoIds = S.selectedCargoIds.filter(x => x !== id);
                 }
+                save(); render();
             } else if (ev.target.dataset.pm) {
                 const id = ev.target.dataset.pm;
                 const o = S.orders.find(x => x.id === id);
                 if (o) {
                     o.packMethod = ev.target.value;
                     save(); render();
-                }
-            }
-        });
-
-        document.addEventListener('input', ev => {
-            if (ev.target.dataset.resi) {
-                const id = ev.target.dataset.resi;
-                const o = S.orders.find(x => x.id === id);
-                if (o) {
-                    o.cargoResi = ev.target.value;
-                    save();
                 }
             }
         });
@@ -1281,8 +1369,9 @@
             const d = t.dataset;
 
             if (t.id === 'zc') return close();
-            if (t.id === 'btn-packing') { S.tab = 'p'; save(); render(); }
-            else if (t.id === 'btn-export-pdf') { exportPackingPDF(); }
+            if (t.id === 'btn-back-dash') { S.tab = 'd'; save(); render(); }
+            else if (t.id === 'btn-packing') { S.tab = 'p'; save(); render(); }
+            else if (t.id === 'btn-open-cargo-export') { openCargoExportModal(); }
             else if (d.t) { S.tab = d.t; save(); render(); }
             else if (d.f !== undefined) { S.filter = +d.f; render(); }
             else if (d.pf !== undefined) { S.packFilter = d.pf; render(); }
@@ -1298,6 +1387,7 @@
                 if (!t.dataset.s) { t.dataset.s = 1; t.textContent = 'Yakin? Pesanan direset, data pelanggan tetap ada. Ketuk lagi'; return; }
                 S.history.push({ name: S.trip.name, summary: summary(), ts: Date.now() });
                 S.orders = [];
+                S.selectedCargoIds = [];
                 S.trip.name = 'Trip Baru';
                 S.filter = -1;
                 S.tab = 'q';
