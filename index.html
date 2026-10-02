@@ -1,1504 +1,324 @@
 <!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Catatan Jastip - Jasa Titip Manager</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
-    <style>
-        :root {
-            box-sizing: border-box;
-            --bg: #f4f6f8;
-            --card: #ffffff;
-            --ink: #0f172a;
-            --mute: #64748b;
-            --line: #e2e8f0;
-            --hi: #ef4444;
-            --ok: #10b981;
-            --soft: #e0f2fe;
-            --soft-accent: #f0fdf4;
-            --sun: #f59e0b;
-            --brand: #2563eb;
-            --brand-dark: #1d4ed8;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --bg: #0f172a;
-                --card: #1e293b;
-                --ink: #f8fafc;
-                --mute: #94a3b8;
-                --line: #334155;
-                --soft: #1e3a8a;
-                --soft-accent: #064e3b;
-            }
-        }
-
-        *, *::before, *::after {
-            box-sizing: inherit;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        body {
-            margin: 0;
-            background: var(--bg);
-            color: var(--ink);
-            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-            padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
-            min-height: 100vh;
-        }
-
-        button, input, select, textarea {
-            font: inherit;
-            color: inherit;
-        }
-
-        button {
-            cursor: pointer;
-            border: 0;
-            border-radius: 12px;
-            min-height: 44px;
-            padding: 0 14px;
-            background: var(--soft);
-            font-weight: 600;
-            transition: all 0.15s ease;
-        }
-
-        button:active {
-            transform: scale(0.98);
-            opacity: 0.9;
-        }
-
-        button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-            outline: 2px solid var(--brand);
-            outline-offset: 1px;
-        }
-
-        main {
-            padding: 0 14px;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .chips {
-            display: flex;
-            gap: 6px;
-            overflow-x: auto;
-            padding: 8px 0;
-            scrollbar-width: none;
-        }
-        .chips::-webkit-scrollbar { display: none; }
-
-        .chip {
-            flex: none;
-            min-height: 36px;
-            padding: 0 14px;
-            border-radius: 99px;
-            background: var(--card);
-            border: 1px solid var(--line);
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .chip.on {
-            background: var(--ink);
-            color: var(--bg);
-            border-color: var(--ink);
-        }
-
-        .card {
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 14px;
-            margin: 10px 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-        }
-
-        .row {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            gap: 10px;
-        }
-
-        .who { font-weight: 800; font-size: 15px; }
-        .item-title { font-size: 16px; font-weight: 700; line-height: 1.3; }
-        .price { font-weight: 800; font-size: 17px; text-align: right; color: var(--brand); }
-        .fx { font-size: 12px; color: var(--mute); }
-
-        .steps {
-            display: flex;
-            gap: 4px;
-            margin: 12px 0 10px;
-        }
-        .steps button {
-            flex: 1;
-            min-height: 28px;
-            padding: 0 2px;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 700;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            background: var(--line);
-            color: var(--mute);
-        }
-        .steps button.done { background: var(--soft-accent); color: var(--ok); }
-        .steps button.cur { background: var(--ink); color: var(--bg); }
-
-        .acts { display: flex; gap: 8px; }
-        .go {
-            flex: 1;
-            background: var(--brand);
-            color: #ffffff;
-            font-weight: 700;
-        }
-        .wa {
-            background: #25d366;
-            color: #04391a;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 44px;
-            padding: 0 14px;
-            border-radius: 12px;
-            font-weight: 700;
-            text-decoration: none;
-            gap: 6px;
-        }
-
-        .tag {
-            display: inline-block;
-            font-size: 11px;
-            border-radius: 99px;
-            padding: 2px 8px;
-            font-weight: 700;
-        }
-        .lunas { background: #d1fae5; color: #047857; }
-        .utang { background: #ffe4e6; color: #be123c; }
-
-        .nav {
-            position: fixed;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            display: flex;
-            background: var(--card);
-            border-top: 1px solid var(--line);
-            padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
-            gap: 6px;
-            z-index: 10;
-        }
-        .nav button {
-            flex: 1;
-            background: none;
-            min-height: 48px;
-            padding: 0 4px;
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--mute);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 2px;
-        }
-        .nav button.on {
-            background: var(--soft);
-            color: var(--brand);
-            font-weight: 800;
-            border-radius: 12px;
-        }
-
-        .fab {
-            position: fixed;
-            right: 18px;
-            bottom: calc(76px + env(safe-area-inset-bottom, 0px));
-            background: var(--brand);
-            color: #ffffff;
-            font-weight: 800;
-            border-radius: 99px;
-            min-height: 52px;
-            padding: 0 22px;
-            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
-            z-index: 9;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .hero {
-            background: linear-gradient(135deg, #1e293b, #0f172a);
-            color: #ffffff;
-            border-radius: 20px;
-            padding: 18px;
-            margin: 12px 0;
-            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
-        }
-        .hero b {
-            display: block;
-            font-size: 32px;
-            font-weight: 800;
-            letter-spacing: -0.03em;
-            line-height: 1.1;
-            margin: 4px 0;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .grid .card { margin: 0; }
-        .grid b { display: block; font-size: 18px; font-weight: 800; }
-
-        .bar {
-            height: 8px;
-            border-radius: 99px;
-            background: var(--line);
-            margin-top: 8px;
-            overflow: hidden;
-        }
-        .bar i { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
-
-        .scrim {
-            position: fixed;
-            inset: 0;
-            background: rgba(0, 0, 0, 0.55);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            z-index: 50;
-        }
-        .sheet {
-            background: var(--bg);
-            width: 100%;
-            max-width: 600px;
-            max-height: 90vh;
-            overflow-y: auto;
-            border-radius: 24px 24px 0 0;
-            padding: 20px 18px calc(24px + env(safe-area-inset-bottom, 0px));
-            box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
-        }
-
-        label {
-            display: block;
-            font-size: 13px;
-            font-weight: 700;
-            margin: 12px 0 4px;
-            color: var(--ink);
-        }
-        input, select, textarea {
-            width: 100%;
-            min-height: 48px;
-            border-radius: 12px;
-            border: 1px solid var(--line);
-            background: var(--card);
-            padding: 10px 14px;
-            color: var(--ink);
-        }
-
-        .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .prev {
-            background: var(--soft);
-            border-radius: 14px;
-            padding: 12px 14px;
-            margin: 14px 0;
-            font-weight: 600;
-            font-size: 14px;
-        }
-
-        .primary {
-            width: 100%;
-            background: var(--brand);
-            color: #ffffff;
-            font-weight: 800;
-            min-height: 50px;
-            margin-top: 10px;
-            border-radius: 14px;
-            font-size: 15px;
-        }
-
-        .toast {
-            position: fixed;
-            left: 16px;
-            right: 16px;
-            bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-            background: var(--ink);
-            color: var(--bg);
-            border-radius: 16px;
-            padding: 12px 16px;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-            justify-content: space-between;
-            z-index: 60;
-            max-width: 560px;
-            margin: auto;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
-            font-size: 13px;
-            font-weight: 600;
-        }
-
-        .warn {
-            background: #fef3c7;
-            color: #78350f;
-            border-radius: 12px;
-            padding: 10px 14px;
-            margin: 8px 0;
-            font-size: 13px;
-            font-weight: 500;
-            border: 1px solid #fde68a;
-        }
-
-        .empty {
-            text-align: center;
-            color: var(--mute);
-            padding: 50px 16px;
-            font-size: 14px;
-            line-height: 1.6;
-        }
-
-        .thumb {
-            width: 60px;
-            height: 60px;
-            border-radius: 12px;
-            object-fit: cover;
-            flex: none;
-            cursor: pointer;
-            border: 1px solid var(--line);
-        }
-        .big {
-            width: 100%;
-            max-height: 280px;
-            object-fit: contain;
-            border-radius: 14px;
-            background: var(--soft);
-            margin-top: 8px;
-        }
-
-        pre {
-            white-space: pre-wrap;
-            font: inherit;
-            background: var(--card);
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 12px 14px;
-            font-size: 13px;
-        }
-
-        /* Packing List Styling */
-        .pack-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 12px;
-            border-radius: 12px;
-            background: var(--bg);
-            margin-top: 8px;
-            transition: all 0.2s ease;
-        }
-        .pack-item.packed {
-            opacity: 0.65;
-            background: var(--soft-accent);
-        }
-
-        @media (prefers-reduced-motion: no-preference) {
-            .sheet { animation: sheetUp 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
-            @keyframes sheetUp {
-                from { transform: translateY(100%); opacity: 0; }
-                to { transform: translateY(0); opacity: 1; }
-            }
-        }
-    </style>
-</head>
-<body>
-    <header class="max-w-[600px] mx-auto pt-4 px-4 pb-2 flex justify-between items-center gap-2">
-        <div class="flex items-center gap-2">
-            <button id="btn-back-dash" class="bg-slate-200 dark:bg-slate-700 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1">
-                <span>⬅️</span> <span>Dashboard</span>
-            </button>
-            <div>
-                <h1 id="tn" class="text-base font-extrabold tracking-tight leading-tight">Catatan Jastip</h1>
-                <div class="sub text-[11px] font-medium text-slate-500 dark:text-slate-400" id="ts">Loading...</div>
-            </div>
-        </div>
-        <div class="flex gap-1.5">
-            <button id="btn-packing" class="bg-emerald-600 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow-sm hover:bg-emerald-700">
-                <span>🧳</span> <span>Packing</span>
-            </button>
-            <button id="gear" class="bg-slate-200 dark:bg-slate-700 font-bold text-xs px-2.5 py-2 rounded-xl" aria-label="Atur trip">⚙️</button>
-        </div>
-    </header>
-
-    <main id="m"></main>
-
-    <button class="fab" id="fab">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
-        <span>Pesanan</span>
-    </button>
-
-    <nav class="nav">
-        <button data-t="q">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-            <span>Pesanan</span>
-        </button>
-        <button data-t="p">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
-            <span>Packing</span>
-        </button>
-        <button data-t="c">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
-            <span>Pelanggan</span>
-        </button>
-        <button data-t="d">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            <span>Dashboard</span>
-        </button>
-    </nav>
-
-    <div id="ov"></div>
-    <div id="tt"></div>
-
-    <script>
-        const CUR = {
-            JPY: ['¥', 110], KRW: ['₩', 11.6], SGD: ['S$', 12900], THB: ['฿', 490],
-            HKD: ['HK$', 2100], USD: ['$', 16400], MYR: ['RM', 3900], TWD: ['NT$', 520],
-            EUR: ['€', 19200], AUD: ['A$', 10900], CNY: ['CN¥', 2300]
-        };
-        const ST = ['Dicari', 'Ketemu', 'Dibeli', 'Dibayar', 'OTW Indo', 'Done'];
-        const CAT = ['Skincare', 'Makeup', 'Obat & Vitamin', 'Snack & Makanan', 'Fashion', 'Lainnya'];
-        const K = 'jastip-v2';
-
-        const def = () => ({
-            trip: { name: 'Trip Japan / Bangkok 2026', markup: 15, cur: 'JPY', mt: 'pct' },
-            rates: Object.fromEntries(Object.entries(CUR).map(([k, v]) => [k, v[1]])),
-            ratesAt: null,
-            customers: [],
-            orders: [],
-            history: [],
-            tab: 'q',
-            filter: -1,
-            searchQuery: '',
-            packFilter: 'all',
-            selectedCargoIds: []
-        });
-
-        let S;
-        try {
-            S = Object.assign(def(), JSON.parse(localStorage.getItem(K) || '{}'));
-            if (!S.selectedCargoIds) S.selectedCargoIds = [];
-        } catch (e) {
-            S = def();
-        }
-
-        const save = () => {
-            try {
-                localStorage.setItem(K, JSON.stringify(S));
-            } catch (e) {
-                toast('Memori browser penuh, foto atau cadangan belum tersimpan seluruhnya.', 8000);
-            }
-        };
-
-        const $ = s => document.querySelector(s);
-        const uid = () => Math.random().toString(36).slice(2, 9);
-        const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-        const idr = n => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
-        const rb = n => n >= 1e6 ? 'Rp ' + (n / 1e6).toFixed(2).replace(/\.?0+$/, '').replace('.', ',') + ' jt' : n >= 1000 ? 'Rp ' + String(+(n / 1000).toFixed(1)).replace('.', ',') + 'rb' : idr(n);
-        const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? 0 : x; };
-        const sym = c => (CUR[c] || [c])[0];
-        const fx = (n, c) => sym(c) + ' ' + (n || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
-        const cust = id => S.customers.find(c => c.id === id) || { name: '(dihapus)', wa: '', notes: '' };
-
-        const cost = o => (o.amt || 0) * (o.qty || 1) * (o.rate || S.rates[o.cur] || 1);
-        const mk = o => o.mt === 'idr' ? (o.markup || 0) * (o.qty || 1) : cost(o) * (o.markup || 0) / 100;
-        const sell = o => Math.ceil((cost(o) + mk(o)) / 500) * 500;
-        const paidOf = o => o.paidAmt || 0;
-        const sisa = o => Math.max(0, sell(o) - paidOf(o));
-        const mkl = o => o.mt === 'idr' ? '+' + idr(o.markup) + '/pcs' : '+' + o.markup + '%';
-        const bought = o => o.status >= 2;
-
-        const waNum = n => {
-            n = String(n || '').replace(/\D/g, '');
-            return n.startsWith('0') ? '62' + n.slice(1) : n.startsWith('8') ? '62' + n : n;
-        };
-        const waLink = (w, t) => 'https://wa.me/' + waNum(w) + '?text=' + encodeURIComponent(t);
-
-        function msg(o, st) {
-            const n = cust(o.cid).name, p = rb(sell(o)), i = o.item + (o.qty > 1 ? ' x' + o.qty : '');
-            return [
-                `Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
-                `Halo ${n}, ${i} ketemu${o.store ? ' di ' + o.store : ''}! Harganya ${p}, konfirmasi ya?`,
-                `Halo ${n}, ${i} sudah kubeli ✅ Total ${p}. Kalau belum transfer, ditunggu ya 🙏`,
-                `Makasih ${n}! Pembayaran ${p} untuk ${i} sudah kuterima 💚`,
-                `Halo ${n}, ${i} sudah OTW Indo ✈️ Nanti kukabarin lagi kalau sudah sampai ya!`,
-                `Halo ${n}, ${i} sudah dikirim/siap diambil ya 📦 Makasih banyak! 💚`
-            ][st];
-        }
-
-        const payMsg = (o, a) => `Makasih ${cust(o.cid).name}! Pembayaran ${idr(a)} untuk ${o.item} sudah kuterima 💚 ` + (sisa(o) > 0 ? 'Sisa ' + idr(sisa(o)) + ' ya.' : 'Sudah lunas ✅');
-
-        function toast(html, ms = 6000) {
-            const t = $('#tt');
-            t.innerHTML = '<div class="toast"><span>' + html + '</span></div>';
-            clearTimeout(toast.h);
-            toast.h = setTimeout(() => t.innerHTML = '', ms);
-        }
-
-        function sheet(html) {
-            $('#ov').innerHTML = '<div class="scrim" id="sc"><div class="sheet" role="dialog">' + html + '</div></div>';
-            $('#sc').onclick = ev => { if (ev.target.id === 'sc') close(); };
-        }
-        const close = () => { $('#ov').innerHTML = ''; };
-
-        function reqStatus(id, i) {
-            const o = S.orders.find(x => x.id === id);
-            if (i === 3 && sisa(o) > 0) paySheet(id);
-            else setStatus(id, i);
-        }
-
-        function setStatus(id, i) {
-            const o = S.orders.find(x => x.id === id);
-            o.status = i;
-            save();
-            render();
-            const c = cust(o.cid);
-            toast(`<span>${ST[i]} ✔ ${e(c.name)}${i === 5 && sisa(o) > 0 ? ' · sisa ' + rb(sisa(o)) : ''}</span>` + (c.wa ? `<a class="wa text-xs py-1 px-3 min-h-[32px] ml-2" target="_blank" rel="noopener" href="${waLink(c.wa, msg(o, i))}">Kabari WA</a>` : ''));
-        }
-
-        function stat(list) {
-            const b = list.filter(bought);
-            const rev = b.reduce((s, o) => s + sell(o), 0);
-            const c = b.reduce((s, o) => s + cost(o), 0);
-            const paid = list.reduce((s, o) => s + paidOf(o), 0);
-            return {
-                n: list.length,
-                nb: b.length,
-                rev,
-                c,
-                m: rev - c,
-                paid,
-                out: b.reduce((s, o) => s + sisa(o), 0),
-                wait: list.filter(o => !bought(o)).reduce((s, o) => s + sell(o), 0)
-            };
-        }
-
-        function render() {
-            $('#tn').textContent = S.trip.name;
-            const s = stat(S.orders);
-            $('#ts').textContent = S.orders.length + ' pesanan · Untung bersih ' + rb(s.m);
-
-            document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab));
-            $('#fab').style.display = S.tab === 'c' ? 'none' : 'flex';
-
-            $('#m').innerHTML = S.tab === 'q' ? vQ() : S.tab === 'p' ? vP() : S.tab === 'c' ? vC() : vD();
-        }
-
-        function vQ() {
-            const cn = i => S.orders.filter(o => i < 0 || o.status === i).length;
-            let h = '<div class="chips">' + [-1, 0, 1, 2, 3, 4, 5].map(i => `<button class="chip ${S.filter === i ? 'on' : ''}" data-f="${i}">${i < 0 ? 'Semua' : ST[i]} (${cn(i)})</button>`).join('') + '</div>';
-
-            h += `<div class="mt-2 mb-3"><input type="text" id="q-search" placeholder="🔍 Cari barang, toko, atau pelanggan..." value="${e(S.searchQuery || '')}" class="text-sm"></div>`;
-
-            let L = S.orders.filter(o => S.filter < 0 || o.status === S.filter);
-            if (S.searchQuery) {
-                const q = S.searchQuery.toLowerCase();
-                L = L.filter(o => o.item.toLowerCase().includes(q) || (o.store && o.store.toLowerCase().includes(q)) || cust(o.cid).name.toLowerCase().includes(q));
-            }
-            L.sort((a, b) => b.ts - a.ts);
-
-            if (!L.length) {
-                return h + `<div class="empty">${S.orders.length ? 'Nggak ada pesanan dengan kriteria ini.' : 'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> untuk mencatat titipan baru!'}</div>`;
-            }
-
-            return h + L.map(o => {
-                const c = cust(o.cid), nx = o.status < 5 ? ST[o.status + 1] : null;
-                const pm = o.packMethod || 'kargo';
-                return `<div class="card">
-                    <div class="row">
-                        ${o.photo ? `<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">` : ''}
-                        <div style="flex:1">
-                            <div class="who">${e(c.name)}</div>
-                            <div class="item-title">${e(o.item)}${o.qty > 1 ? ' ×' + o.qty : ''}</div>
-                            <div class="fx">
-                                ${e(o.store || 'Toko tak dicatat')} · ${fx(o.amt, o.cur)}${o.qty > 1 ? ' /pcs' : ''} · ${mkl(o)}
-                                <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded ${pm === 'kargo' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'}">
-                                    ${pm === 'kargo' ? '📦 Kargo' : '🧳 Koper'}
-                                </span>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="price">${idr(sell(o))}</div>
-                            <div style="text-align:right" class="mt-1">
-                                ${bought(o) || paidOf(o) > 0 ? `<button class="tag ${sisa(o) <= 0 ? 'lunas' : 'utang'}" data-pay="${o.id}">${sisa(o) <= 0 ? 'Lunas' : paidOf(o) > 0 ? 'Sebagian · sisa ' + rb(sisa(o)) : 'Belum bayar'}</button>` : ''}
-                            </div>
-                        </div>
-                    </div>
-                    <div class="steps">${ST.map((t, i) => `<button data-s="${o.id}:${i}" class="${i < o.status ? 'done' : i === o.status ? 'cur' : ''}">${t}</button>`).join('')}</div>
-                    <div class="acts">
-                        ${nx ? `<button class="go" data-s="${o.id}:${o.status + 1}">${nx} ›</button>` : '<button class="go" style="background:var(--ok)" disabled>Selesai 🎉</button>'}
-                        ${c.wa ? `<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa, msg(o, o.status))}">WA</a>` : ''}
-                        <button data-eo="${o.id}" aria-label="Ubah" class="px-3">⋯</button>
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        /* TAB PACKING LIST & EKSPOR PDF KARGO DENGAN STATUS CHECKBOX */
-        function vP() {
-            const boughtOrders = S.orders.filter(bought);
-            const total = boughtOrders.length;
-            const packedCount = boughtOrders.filter(o => o.packed).length;
-            const pct = total ? Math.round((packedCount / total) * 100) : 0;
-
-            const cargoOrders = boughtOrders.filter(o => (o.packMethod || 'kargo') === 'kargo');
-            const totalCargo = cargoOrders.length;
-
-            let filterMode = S.packFilter || 'all';
-            let filtered = boughtOrders;
-            if (filterMode === 'kargo') filtered = cargoOrders;
-            else if (filterMode === 'koper') filtered = boughtOrders.filter(o => (o.packMethod || 'kargo') === 'koper');
-
-            // Grouping berdasarkan Pelanggan
-            const groups = {};
-            filtered.forEach(o => {
-                if (!groups[o.cid]) groups[o.cid] = [];
-                groups[o.cid].push(o);
-            });
-
-            const selectedCount = S.selectedCargoIds.length;
-
-            let html = `
-                <div class="hero mb-4">
-                    <div class="flex justify-between items-start gap-2">
-                        <div>
-                            <span class="sub" style="color:inherit;opacity:.8">📦 Pengiriman & Progress Packing</span>
-                            <b>${packedCount} / ${total} Barang Dipacking (${pct}%)</b>
-                        </div>
-                        <button id="btn-open-cargo-export" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-extrabold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow">
-                            <span>📄</span> <span>Export PDF Kargo (${selectedCount})</span>
-                        </button>
-                    </div>
-                    <div class="bar mt-2"><i style="width:${pct}%; background:var(--ok)"></i></div>
-                    <div class="text-xs opacity-90 mt-2 flex justify-between">
-                        <span>Centang <b>Packed ✓</b> saat memasukkan ke koper/dus</span>
-                        <span><b>${selectedCount}</b> dicentang resi</span>
-                    </div>
-                </div>
-
-                <div class="chips mb-3">
-                    <button class="chip ${filterMode === 'all' ? 'on' : ''}" data-pf="all">Semua (${total})</button>
-                    <button class="chip ${filterMode === 'kargo' ? 'on' : ''}" data-pf="kargo">📦 Khusus Kargo (${totalCargo})</button>
-                    <button class="chip ${filterMode === 'koper' ? 'on' : ''}" data-pf="koper">🧳 Masuk Koper (${total - totalCargo})</button>
-                </div>
-            `;
-
-            if (!boughtOrders.length) {
-                return html + `<div class="empty">Belum ada barang yang dibeli untuk dipacking.<br>Ubah status pesanan ke <b>Dibeli</b> terlebih dahulu.</div>`;
-            }
-
-            if (!filtered.length) {
-                return html + `<div class="empty">Tidak ada barang dengan kriteria filter ini.</div>`;
-            }
-
-            Object.keys(groups).forEach(cid => {
-                const c = cust(cid);
-                const items = groups[cid];
-
-                html += `
-                    <div class="card">
-                        <div class="row mb-2 border-b border-slate-100 dark:border-slate-800 pb-2">
-                            <div class="who text-base">${e(c.name)}</div>
-                            <span class="fx">${items.length} Barang</span>
-                        </div>
-                        ${items.map(o => {
-                            const method = o.packMethod || 'kargo';
-                            const isCheckedForCargo = S.selectedCargoIds.includes(o.id);
-                            return `
-                            <div class="pack-item ${o.packed ? 'packed' : ''}">
-                                ${o.photo ? `<img class="thumb" style="width:48px;height:48px" src="${o.photo}" data-z="${o.id}" alt="Foto">` : ''}
-                                <div style="flex:1" class="min-w-0">
-                                    <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${e(o.item)} ${o.qty > 1 ? '<span class="text-blue-600 font-extrabold">x' + o.qty + '</span>' : ''}</div>
-                                    <div class="fx mb-1.5">${e(o.store || 'Toko tak dicatat')}</div>
-
-                                    <div class="flex items-center gap-2 flex-wrap">
-                                        <!-- [REVISI 1] Checkbox Status Packed -->
-                                        <label class="flex items-center gap-1.5 bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-lg text-xs font-bold cursor-pointer">
-                                            <input type="checkbox" data-pack-toggle="${o.id}" ${o.packed ? 'checked' : ''} class="w-4 h-4 rounded accent-emerald-600 cursor-pointer">
-                                            <span class="${o.packed ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' : 'text-slate-600 dark:text-slate-300'}">${o.packed ? 'Packed ✓' : 'Belum'}</span>
-                                        </label>
-
-                                        <!-- Dropdown Metode -->
-                                        <select class="text-xs font-bold py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" data-pm="${o.id}">
-                                            <option value="kargo" ${method === 'kargo' ? 'selected' : ''}>📦 Pengiriman Kargo</option>
-                                            <option value="koper" ${method === 'koper' ? 'selected' : ''}>🧳 Masuk Koper</option>
-                                        </select>
-
-                                        <!-- Checkbox Gabung Resi -->
-                                        <label class="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-1 rounded-lg text-xs font-bold cursor-pointer ml-auto">
-                                            <input type="checkbox" data-cargo-check="${o.id}" ${isCheckedForCargo ? 'checked' : ''} class="w-3.5 h-3.5 rounded accent-amber-500 cursor-pointer">
-                                            <span>Resi PDF</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        `}).join('')}
-                    </div>
-                `;
-            });
-
-            return html;
-        }
-
-        /* MODAL EKSPOR PDF KARGO (1 RESI) & SHARE */
-        function openCargoExportModal() {
-            const selectedOrders = S.orders.filter(o => S.selectedCargoIds.includes(o.id));
-
-            if (!selectedOrders.length) {
-                return toast('Centang minimal 1 barang kargo yang ingin dimasukkan ke dalam resi ini!', 3500);
-            }
-
-            const existingResi = selectedOrders.find(o => o.cargoResi)?.cargoResi || '';
-
-            sheet(`
-                <h1 class="text-xl font-extrabold mb-1">📦 Export PDF Kargo (1 Resi)</h1>
-                <div class="sub text-xs text-slate-500 mb-3">${selectedOrders.length} barang dipilih untuk dikirim dalam 1 resi.</div>
-
-                <label>Nomor Resi Kargo Pengiriman</label>
-                <input id="cargo-resi-input" class="font-bold text-base text-blue-600" value="${e(existingResi)}" placeholder="Contoh: KG-2026-9988X">
-
-                <div class="prev">
-                    <div class="font-bold mb-1 text-slate-800 dark:text-slate-200">Barang dalam Resi ini:</div>
-                    <ul class="list-disc pl-4 text-xs space-y-1 max-h-40 overflow-y-auto">
-                        ${selectedOrders.map(o => `<li><b>${e(cust(o.cid).name)}</b>: ${e(o.item)} (x${o.qty})</li>`).join('')}
-                    </ul>
-                </div>
-
-                <div class="space-y-2 mt-4">
-                    <button class="primary flex items-center justify-center gap-2" id="btn-do-print-pdf">
-                        <span>💾</span> <span>Simpan File / Cetak PDF</span>
-                    </button>
-                    <button class="primary flex items-center justify-center gap-2" style="background:#25d366; color:#04391a" id="btn-do-share-cargo">
-                        <span>📲</span> <span>Bagikan Rincian (Share / WA)</span>
-                    </button>
-                    <button style="width:100%; background:var(--line); color:var(--ink)" id="btn-close-modal">
-                        ⬅️ Kembali
-                    </button>
-                </div>
-            `);
-
-            $('#btn-do-print-pdf').onclick = () => {
-                const resi = $('#cargo-resi-input').value.trim();
-                if (!resi) return toast('Masukkan nomor resi kargo terlebih dahulu!', 2500);
-
-                selectedOrders.forEach(o => o.cargoResi = resi);
-                save();
-
-                generateCargoPDF(resi, selectedOrders);
-            };
-
-            $('#btn-do-share-cargo').onclick = () => {
-                const resi = $('#cargo-resi-input').value.trim() || 'BELUM ADA RESI';
-                shareCargoText(resi, selectedOrders);
-            };
-
-            $('#btn-close-modal').onclick = () => close();
-        }
-
-        /* [REVISI 3] GENERATE PRINTABLE PDF KARGO DENGAN FOTO PRODUK */
-        function generateCargoPDF(resi, orders) {
-            const printWin = window.open('', '_blank');
-            if (!printWin) return toast('Gagal membuka jendela cetak. Izinkan pop-up di browser Anda.', 3000);
-
-            const groups = {};
-            orders.forEach(o => {
-                if (!groups[o.cid]) groups[o.cid] = [];
-                groups[o.cid].push(o);
-            });
-
-            const totalItems = orders.reduce((s, o) => s + (o.qty || 1), 0);
-
-            let content = `
-            <!DOCTYPE html>
-            <html lang="id">
-            <head>
-                <meta charset="utf-8">
-                <title>Packing List Kargo - Resi ${e(resi)}</title>
-                <style>
-                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 24px; color: #0f172a; line-height: 1.4; }
-                    .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
-                    .title { font-size: 22px; font-weight: 800; color: #1e293b; margin: 0; }
-                    .resi-box { background: #fef3c7; border: 2px dashed #f59e0b; padding: 10px 16px; border-radius: 8px; text-align: right; }
-                    .resi-label { font-size: 11px; text-transform: uppercase; font-weight: bold; color: #b45309; }
-                    .resi-num { font-size: 18px; font-weight: 800; color: #92400e; }
-                    .meta { font-size: 12px; color: #64748b; margin-top: 4px; }
-                    .cust-block { margin-bottom: 20px; page-break-inside: avoid; }
-                    .cust-name { font-size: 14px; font-weight: bold; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb; }
-                    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
-                    th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; vertical-align: middle; }
-                    th { background: #f8fafc; font-weight: bold; color: #334155; }
-                    .img-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; }
-                    .summary { margin-top: 24px; border-top: 2px solid #e2e8f0; padding-top: 12px; font-size: 12px; display: flex; justify-content: space-between; color: #475569; }
-                    @media print {
-                        body { padding: 0; }
-                        .no-print { display: none !important; }
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="no-print" style="margin-bottom:20px; padding:12px; background:#e0f2fe; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-weight:bold; font-size:13px; color:#0369a1;">📄 Dokumen Packing List Kargo Siap Dicetak / Disimpan ke PDF</span>
-                    <button onclick="window.print()" style="background:#2563eb; color:white; border:none; padding:8px 16px; font-weight:bold; border-radius:6px; cursor:pointer;">💾 Simpan PDF / Cetak</button>
-                </div>
-
-                <div class="header">
-                    <div>
-                        <div class="title">📦 PACKING LIST PENGIRIMAN KARGO</div>
-                        <div class="meta">Trip: <b>${e(S.trip.name)}</b> · Tanggal: ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}</div>
-                    </div>
-                    <div class="resi-box">
-                        <div class="resi-label">Nomor Resi Kargo</div>
-                        <div class="resi-num">${e(resi)}</div>
-                    </div>
-                </div>
-
-                <div style="margin-bottom:16px; font-size:13px;">
-                    Total Kategori Pelanggan: <b>${Object.keys(groups).length}</b> · Total Barang: <b>${totalItems} pcs</b>
-                </div>
-            `;
-
-            Object.keys(groups).forEach(cid => {
-                const c = cust(cid);
-                const items = groups[cid];
-                content += `
-                <div class="cust-block">
-                    <div class="cust-name">Penerima / Pelanggan: ${e(c.name)} ${c.wa ? ' (' + e(c.wa) + ')' : ''}</div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th style="width:30px; text-align:center;">No</th>
-                                <th style="width:50px; text-align:center;">Foto</th>
-                                <th>Nama Barang / Produk</th>
-                                <th>Toko / Asal</th>
-                                <th style="width:50px; text-align:center;">Qty</th>
-                                <th>Catatan Khusus</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${items.map((o, idx) => `
-                                <tr>
-                                    <td style="text-align:center;">${idx + 1}</td>
-                                    <td style="text-align:center;">
-                                        ${o.photo ? `<img class="img-thumb" src="${o.photo}" alt="Foto">` : '<span style="color:#94a3b8; font-size:10px;">-</span>'}
-                                    </td>
-                                    <td><b>${e(o.item)}</b></td>
-                                    <td>${e(o.store || '-')}</td>
-                                    <td style="text-align:center; font-weight:bold; font-size:13px;">${o.qty}</td>
-                                    <td>${e(c.notes || '-')}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-                `;
-            });
-
-            content += `
-                <div class="summary">
-                    <div>Dokumen otomatis dibuat dari Sistem Catatan Jastip.</div>
-                    <div>Halaman 1 / 1</div>
-                </div>
-                <script>
-                    window.onload = function() { window.print(); }
-                <\/script>
-            </body>
-            </html>
-            `;
-
-            printWin.document.write(content);
-            printWin.document.close();
-        }
-
-        /* BAGIKAN RINGKASAN KARGO (SHARE / WA) */
-        function shareCargoText(resi, orders) {
-            let txt = `📦 *PACKING LIST KARGO*\n` +
-                `No. Resi: *${resi}*\n` +
-                `Trip: ${S.trip.name}\n\n` +
-                `*Daftar Barang (${orders.length} Jenis):*\n`;
-
-            orders.forEach((o, idx) => {
-                txt += `${idx + 1}. [${cust(o.cid).name}] ${o.item} (x${o.qty})\n`;
-            });
-
-            txt += `\nTotal barang dikirim dalam resi ini. Terima kasih! 🙏`;
-
-            if (navigator.share) {
-                navigator.share({
-                    title: `Packing List Kargo - ${resi}`,
-                    text: txt
-                }).catch(() => {});
-            } else {
-                window.open(`https://wa.me/?text=${encodeURIComponent(txt)}`, '_blank');
-            }
-        }
-
-        function vC() {
-            const add = '<button class="primary" data-ec="">+ Pelanggan Baru</button>';
-            if (!S.customers.length) return add + '<div class="empty">Belum ada pelanggan. Tambah dulu untuk mempermudah pencatatan titipan.</div>';
-
-            return add + S.customers.map(c => {
-                const os = S.orders.filter(o => o.cid === c.id);
-                const t = stat(os);
-                return `<div class="card">
-                    <div class="row">
-                        <div>
-                            <div class="who">${e(c.name)}</div>
-                            <div class="fx">${e(c.wa || 'Belum ada nomor WhatsApp')}</div>
-                        </div>
-                        <div style="text-align:right">
-                            <div class="fx">${os.length} pesanan</div>
-                            ${t.out > 0 ? `<span class="tag utang">Sisa Bayar ${rb(t.out)}</span>` : os.length ? '<span class="tag lunas">Lunas Semua</span>' : ''}
-                        </div>
-                    </div>
-                    ${c.notes ? `<div class="text-xs text-slate-500 mt-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg">${e(c.notes)}</div>` : ''}
-                    <div class="acts mt-3">
-                        <button data-ec="${c.id}" style="flex:1">Ubah / Detail</button>
-                        ${c.wa && t.out > 0 ? `<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa, tagih(c))}">Tagih WA</a>` : ''}
-                    </div>
-                </div>`;
-            }).join('');
-        }
-
-        function tagih(c) {
-            const os = S.orders.filter(o => o.cid === c.id && bought(o) && sisa(o) > 0);
-            return `Halo ${c.name}, berikut rincian titipan yang belum dibayar ya:\n\n` +
-                os.map(o => '• ' + o.item + (o.qty > 1 ? ' x' + o.qty : '') + ': ' + (paidOf(o) > 0 ? 'sisa ' + rb(sisa(o)) + ' (total ' + rb(sell(o)) + ')' : rb(sell(o)))).join('\n') +
-                `\n\nTotal Sisa Bayar: ${idr(os.reduce((x, o) => x + sisa(o), 0))}.\nTerima kasih banyak! 🙏`;
-        }
-
-        function paySheet(id) {
-            const o = S.orders.find(x => x.id === id), c = cust(o.cid), p = paidOf(o), r = sisa(o);
-            sheet(`
-                <h1 class="text-xl font-extrabold mb-1">Catat Pembayaran</h1>
-                <div class="sub text-xs text-slate-500 mb-3">${e(c.name)} · ${e(o.item)}</div>
-                <div class="prev">
-                    Total Jual: <b>${idr(sell(o))}</b><br>
-                    Sudah Dibayar: <b>${idr(p)}</b><br>
-                    <span class="text-red-500 font-extrabold">Sisa Tagihan: ${idr(r)}</span>
-                </div>
-                ${r > 0 ? `
-                    <button class="primary" id="pf">Bayar Lunas (${idr(r)})</button>
-                    <label class="mt-3">Atau bayar sebagian (Nominal Rp)</label>
-                    <input id="pn" inputmode="numeric" placeholder="mis. 100000">
-                    <button class="primary" id="pp" style="background:var(--ink);color:var(--bg)">Simpan Pembayaran Sebagian</button>
-                ` : '<div class="prev text-emerald-600">Pesanan ini sudah lunas! 🎉</div>'}
-                ${p > 0 ? '<button style="width:100%;margin-top:12px;color:var(--hi)" id="pz">Reset Pembayaran (Kembali ke Rp 0)</button>' : ''}
-            `);
-
-            const apply = a => {
-                const x = Math.min(a, r);
-                o.paidAmt = p + x;
-                if (sisa(o) <= 0 && o.status < 3) o.status = 3;
-                save(); close(); render();
-                toast(`<span>${sisa(o) > 0 ? 'Pembayaran dicatat ✔ Sisa ' + rb(sisa(o)) : 'Lunas ✔'}</span>` + (c.wa ? `<a class="wa text-xs py-1 px-3 min-h-[32px]" target="_blank" rel="noopener" href="${waLink(c.wa, payMsg(o, x))}">Kabari WA</a>` : ''));
-            };
-
-            if (r > 0) {
-                $('#pf').onclick = () => apply(r);
-                $('#pp').onclick = () => {
-                    const a = Math.round(num(String($('#pn').value).replace(/\./g, '')));
-                    if (a <= 0) return toast('Isi nominal pembayaran dulu ya', 2500);
-                    apply(a);
-                };
-            }
-            if (p > 0) {
-                $('#pz').onclick = () => {
-                    const b = $('#pz');
-                    if (!b.dataset.s) { b.dataset.s = 1; return b.textContent = 'Yakin? Ketuk lagi untuk reset pembayaran ke Rp 0'; }
-                    o.paidAmt = 0;
-                    if (o.status === 3) o.status = 2;
-                    save(); close(); render();
-                };
-            }
-        }
-
-        function byCust() { return S.customers.map(c => ({ c, ...stat(S.orders.filter(o => o.cid === c.id)) })).filter(x => x.n); }
-        function topCat() {
-            const m = {};
-            S.orders.filter(bought).forEach(o => m[o.cat] = (m[o.cat] || 0) + sell(o));
-            const a = Object.entries(m).sort((x, y) => y[1] - x[1])[0];
-            return a ? a[0] : '-';
-        }
-
-        function summary() {
-            const s = stat(S.orders), bc = byCust().sort((a, b) => b.rev - a.rev)[0];
-            return `✈️️ Rekap ${S.trip.name}\n\n` +
-                `• Pesanan Dibeli: ${s.nb} dari ${s.n}\n` +
-                `• Pesanan Done: ${S.orders.filter(o => o.status === 5).length}\n` +
-                `• Total Omzet: ${idr(s.rev)}\n` +
-                `• Total Modal: ${idr(s.c)}\n` +
-                `• Untung Bersih: ${idr(s.m)}${s.rev ? ' (' + (s.m / s.rev * 100).toFixed(1).replace('.', ',') + '%)' : ''}\n` +
-                `• Uang Masuk: ${idr(s.paid)}\n` +
-                `• Belum Dibayar: ${idr(s.out)}\n` +
-                `• Top Pelanggan: ${bc && bc.rev ? bc.c.name + ' (' + rb(bc.rev) + ')' : '-'}\n` +
-                `• Kategori Terlaris: ${topCat()}`;
-        }
-
-        function vD() {
-            const s = stat(S.orders), bc = byCust().sort((a, b) => b.rev - a.rev), mx = Math.max(1, ...bc.map(x => x.rev));
-            const used = [...new Set(S.orders.map(o => o.cur).concat(S.trip.cur))];
-
-            return `
-                ${S.ratesAt ? '' : '<div class="warn">Kurs masih estimasi awal. Perbarui atau sesuaikan kurs di bawah sebelum belanja.</div>'}
-                
-                <div class="hero">
-                    <span class="sub" style="color:inherit;opacity:.75">Untung Bersih (Barang Dibeli)</span>
-                    <b>${idr(s.m)}</b>
-                    <span class="text-xs opacity-80">Omzet ${idr(s.rev)} − Modal ${idr(s.c)}</span>
-                </div>
-
-                <div class="grid">
-                    <div class="card"><span class="fx">Total Pesanan</span><b>${s.n} <span class="fx">(${s.nb} dibeli)</span></b></div>
-                    <div class="card"><span class="fx">Uang Masuk</span><b>${idr(s.paid)}</b></div>
-                    <div class="card"><span class="fx">Belum Dibayar</span><b style="color:var(--hi)">${idr(s.out)}</b></div>
-                    <div class="card"><span class="fx">Belum Dibeli</span><b>${idr(s.wait)}</b></div>
-                </div>
-
-                <h2 class="font-extrabold text-base mt-5 mb-2">Performa Per Pelanggan</h2>
-                ${bc.length ? bc.map(x => `
-                    <div class="card">
-                        <div class="row">
-                            <span class="who">${e(x.c.name)}</span>
-                            <span><b>${idr(x.rev)}</b></span>
-                        </div>
-                        <div class="fx">${x.n} pesanan · Untung ${rb(x.m)}${x.out > 0 ? ' · Utang ' + rb(x.out) : ''}</div>
-                        <div class="bar"><i style="width:${x.rev / mx * 100}%"></i></div>
-                    </div>
-                `).join('') : '<div class="sub">Belum ada data pelanggan.</div>'}
-
-                <h2 class="font-extrabold text-base mt-5 mb-2">Pengaturan Kurs Mata Uang</h2>
-                <div class="card">
-                    ${used.map(c => `
-                        <label>${c} (Rp / 1 ${c})</label>
-                        <input inputmode="decimal" data-r="${c}" value="${S.rates[c] ?? ''}">
-                    `).join('')}
-                    <button class="primary" style="background:var(--ink);color:var(--bg)" id="live">Ambil Kurs Terbaru (Online)</button>
-                    <div class="fx mt-2">${S.ratesAt ? 'Terakhir diubah: ' + S.ratesAt : 'Belum pernah diubah'}. Kurs dikunci pada tiap pesanan saat dicatat.</div>
-                </div>
-
-                <h2 class="font-extrabold text-base mt-5 mb-2">Rekap & Cadangan Data</h2>
-                <pre>${e(summary())}</pre>
-                <div class="acts mt-3">
-                    <a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(summary())}" style="flex:1">Bagikan Rekap WA</a>
-                    <button id="bak">Ekspor Cadangan JSON</button>
-                </div>
-                <div class="mt-2">
-                    <input type="file" id="import-file" accept=".json" hidden>
-                    <button class="w-full bg-slate-200 dark:bg-slate-700 text-sm font-bold" id="btn-import">Impor Cadangan JSON</button>
-                </div>
-
-                <button class="primary" style="background:var(--soft);color:var(--ink);margin-top:20px" id="newtrip">Tutup Trip & Mulai Trip Baru</button>
-            `;
-        }
-
-        /* [REVISI 2] MODAL PESANAN DENGAN DROPDOWN METODE PACKING */
-        function orderSheet(id) {
-            const o = S.orders.find(x => x.id === id) || {
-                cid: S.customers[0]?.id || '', item: '', store: '', cat: CAT[0],
-                cur: S.trip.cur, amt: '', qty: 1, markup: S.trip.markup, mt: S.trip.mt || 'pct', packed: false, packMethod: 'kargo', cargoResi: ''
-            };
-            let photo = o.photo || '';
-
-            sheet(`
-                <h1 class="text-xl font-extrabold mb-3">${id ? 'Ubah Pesanan' : 'Pesanan Baru'}</h1>
-                <label>Pelanggan</label>
-                <select id="f-c">
-                    ${S.customers.map(c => `<option value="${c.id}" ${c.id === o.cid ? 'selected' : ''}>${e(c.name)}</option>`).join('')}
-                    <option value="+">+ Tambah Pelanggan Baru…</option>
-                </select>
-
-                <div id="nc" hidden class="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl mt-2">
-                    <label class="mt-0">Nama Pelanggan Baru</label>
-                    <input id="f-nn" placeholder="mis. Bu Yuni">
-                    <label>Nomor WhatsApp</label>
-                    <input id="f-nw" inputmode="tel" placeholder="08123456789">
-                </div>
-
-                <label>Nama Barang Titipan</label>
-                <input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Lotion 170ml">
-
-                <label>Nama Toko / Lokasi</label>
-                <input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi / Uniqlo">
-
-                <div class="two">
-                    <div>
-                        <label>Kategori</label>
-                        <select id="f-k">${CAT.map(k => `<option ${k === o.cat ? 'selected' : ''}>${k}</option>`).join('')}</select>
-                    </div>
-                    <div>
-                        <label>Metode Packing</label>
-                        <select id="f-pm">
-                            <option value="kargo" ${o.packMethod === 'kargo' ? 'selected' : ''}>📦 Kargo</option>
-                            <option value="koper" ${o.packMethod === 'koper' ? 'selected' : ''}>🧳 Koper</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="two">
-                    <div>
-                        <label>Mata Uang</label>
-                        <select id="f-u">${Object.keys(S.rates).map(c => `<option ${c === o.cur ? 'selected' : ''}>${c}</option>`).join('')}</select>
-                    </div>
-                    <div>
-                        <label>Harga Beli (Satuan)</label>
-                        <input id="f-a" inputmode="decimal" value="${o.amt}" placeholder="0">
-                    </div>
-                </div>
-
-                <label>Jumlah (Qty)</label>
-                <input id="f-q" inputmode="numeric" value="${o.qty}">
-
-                <label>Markup (Keuntungan)</label>
-                <div class="two">
-                    <select id="f-mt">
-                        <option value="pct" ${o.mt !== 'idr' ? 'selected' : ''}>Persen (%)</option>
-                        <option value="idr" ${o.mt === 'idr' ? 'selected' : ''}>Nominal (Rp/pcs)</option>
-                    </select>
-                    <input id="f-m" inputmode="decimal" value="${o.markup}" aria-label="Besar markup">
-                </div>
-
-                <label>Foto Produk / Struk</label>
-                <div id="pb"></div>
-                <input type="file" id="p-cam" accept="image/*" capture="environment" hidden>
-                <input type="file" id="p-gal" accept="image/*" hidden>
-
-                <div class="prev" id="pv"></div>
-
-                <button class="primary" id="f-ok">${id ? 'Simpan Perubahan' : 'Catat Pesanan'}</button>
-                ${id ? '<button style="width:100%;margin-top:10px;color:var(--hi)" id="del">Hapus Pesanan Ini</button>' : ''}
-            `);
-
-            const pv = () => {
-                const cur = $('#f-u').value, r = S.rates[cur] || 0;
-                const a = num($('#f-a').value) * Math.max(1, num($('#f-q').value)) * r;
-                const m = num($('#f-m').value), t = $('#f-mt').value;
-                const p = Math.ceil((a + (t === 'idr' ? m * Math.max(1, num($('#f-q').value)) : a * m / 100)) / 500) * 500;
-                $('#pv').innerHTML = a ? `Modal ≈ <b>${idr(a)}</b><br>Harga Jual Jastip: <b>${idr(p)}</b> <span class="fx">(Untung ${idr(p - a)})</span>` : 'Isi harga beli dulu untuk menghitung estimasi rupiah.';
-            };
-
-            ['f-u', 'f-a', 'f-q', 'f-m', 'f-mt'].forEach(i => $('#' + i).oninput = pv);
-            pv();
-
-            $('#f-mt').onchange = () => {
-                const i = $('#f-m'), n = num(i.value), t = $('#f-mt').value;
-                if (t === 'idr' && n < 1000) i.value = '25000';
-                if (t === 'pct' && n > 100) i.value = S.trip.markup || 15;
-                pv();
-            };
-
-            const paint = () => {
-                $('#pb').innerHTML = photo ? `<img class="big" src="${photo}" alt="Foto produk"><button id="pr" style="width:100%;margin-top:6px">Hapus Foto</button>` :
-                    '<div class="two"><button id="pc">📷 Kamera</button><button id="pg">🖼 Galeri</button></div>';
-                if (photo) $('#pr').onclick = () => { photo = ''; paint(); };
-                else { $('#pc').onclick = () => $('#p-cam').click(); $('#pg').onclick = () => $('#p-gal').click(); }
-            };
-
-            const pick = async ev => {
-                const f = ev.target.files[0];
-                if (!f) return;
-                try {
-                    photo = await shrink(f);
-                    paint();
-                } catch (x) {
-                    toast('Gagal memproses foto, coba pilih foto lain.', 3000);
-                }
-            };
-
-            $('#p-cam').onchange = pick;
-            $('#p-gal').onchange = pick;
-            paint();
-
-            $('#f-c').onchange = () => { $('#nc').hidden = $('#f-c').value !== '+'; };
-            $('#nc').hidden = $('#f-c').value !== '+';
-
-            $('#f-ok').onclick = () => {
-                let cid = $('#f-c').value;
-                if (cid === '+') {
-                    const n = $('#f-nn').value.trim();
-                    if (!n) return toast('Isi nama pelanggan baru dulu ya', 2500);
-                    cid = uid();
-                    S.customers.push({ id: cid, name: n, wa: $('#f-nw').value.trim(), notes: '' });
-                }
-                if (!cid) return toast('Pilih pelanggan terlebih dahulu', 2500);
-
-                const item = $('#f-i').value.trim(), amt = num($('#f-a').value);
-                if (!item || !amt) return toast('Nama barang & harga beli wajib diisi', 2500);
-
-                const cur = $('#f-u').value;
-                if (!S.rates[cur]) return toast('Kurs ' + cur + ' belum diatur', 2500);
-
-                const d = {
-                    cid, item, store: $('#f-s').value.trim(), cat: $('#f-k').value,
-                    cur, amt, qty: Math.max(1, Math.round(num($('#f-q').value)) || 1),
-                    markup: num($('#f-m').value), mt: $('#f-mt').value, photo,
-                    packMethod: $('#f-pm').value
-                };
-
-                if (id) {
-                    const x = S.orders.find(z => z.id === id);
-                    Object.assign(x, d);
-                    if (!x.rate || x.cur !== cur) x.rate = S.rates[cur];
-                } else {
-                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, cargoResi: '', ts: Date.now() });
-                }
-
-                S.trip.cur = cur;
-                S.trip.markup = d.markup;
-                S.trip.mt = d.mt;
-                save(); close(); render();
-                toast(id ? 'Pesanan diperbarui ✔' : 'Pesanan dicatat ✔', 2500);
-            };
-
-            if (id) {
-                $('#del').onclick = () => {
-                    const b = $('#del');
-                    if (b.dataset.s) {
-                        S.orders = S.orders.filter(x => x.id !== id);
-                        S.selectedCargoIds = S.selectedCargoIds.filter(x => x !== id);
-                        save(); close(); render();
-                    } else {
-                        b.dataset.s = 1;
-                        b.textContent = 'Yakin hapus? Ketuk sekali lagi';
-                    }
-                };
-            }
-        }
-
-        function shrink(f) {
-            return new Promise((res, rej) => {
-                const r = new FileReader();
-                r.onerror = rej;
-                r.onload = () => {
-                    const i = new Image();
-                    i.onerror = rej;
-                    i.onload = () => {
-                        const k = Math.min(1, 640 / Math.max(i.width, i.height));
-                        const c = document.createElement('canvas');
-                        c.width = Math.round(i.width * k);
-                        c.height = Math.round(i.height * k);
-                        c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
-                        res(c.toDataURL('image/jpeg', 0.72));
-                    };
-                    i.src = r.result;
-                };
-                r.readAsDataURL(f);
-            });
-        }
-
-        function custSheet(id) {
-            const c = S.customers.find(x => x.id === id) || { name: '', wa: '', notes: '' };
-            sheet(`
-                <h1 class="text-xl font-extrabold mb-3">${id ? 'Ubah Pelanggan' : 'Pelanggan Baru'}</h1>
-                <label>Nama Lengkap</label>
-                <input id="c-n" value="${e(c.name)}" placeholder="mis. Bu Yuni">
-                <label>Nomor WhatsApp</label>
-                <input id="c-w" inputmode="tel" value="${e(c.wa)}" placeholder="08123456789">
-                <label>Catatan Khusus (Alamat / Preferensi)</label>
-                <textarea id="c-t" rows="3" placeholder="mis. Suka barang limited edition / Kirim via Wahana">${e(c.notes)}</textarea>
-                <button class="primary" id="c-ok">Simpan Pelanggan</button>
-                ${id ? '<button style="width:100%;margin-top:10px;color:var(--hi)" id="c-del">Hapus Pelanggan</button>' : ''}
-            `);
-
-            $('#c-ok').onclick = () => {
-                const n = $('#c-n').value.trim();
-                if (!n) return toast('Nama pelanggan wajib diisi', 2500);
-                const d = { name: n, wa: $('#c-w').value.trim(), notes: $('#c-t').value.trim() };
-                if (id) Object.assign(c, d);
-                else S.customers.push({ id: uid(), ...d });
-                save(); close(); render();
-            };
-
-            if (id) {
-                $('#c-del').onclick = () => {
-                    const b = $('#c-del');
-                    if (S.orders.some(o => o.cid === id)) return b.textContent = 'Pelanggan masih punya pesanan. Hapus pesanannya dulu.';
-                    if (!b.dataset.s) { b.dataset.s = 1; return b.textContent = 'Yakin hapus? Ketuk sekali lagi'; }
-                    S.customers = S.customers.filter(x => x.id !== id);
-                    save(); close(); render();
-                };
-            }
-        }
-
-        function tripSheet() {
-            sheet(`
-                <h1 class="text-xl font-extrabold mb-3">Pengaturan Trip</h1>
-                <label>Nama Trip</label>
-                <input id="t-n" value="${e(S.trip.name)}" placeholder="mis. Trip Osaka - Tokyo Ok 2026">
-                <label>Markup Standar Default</label>
-                <div class="two">
-                    <select id="t-mt">
-                        <option value="pct" ${S.trip.mt !== 'idr' ? 'selected' : ''}>Persen (%)</option>
-                        <option value="idr" ${S.trip.mt === 'idr' ? 'selected' : ''}>Nominal (Rp/pcs)</option>
-                    </select>
-                    <input id="t-m" inputmode="decimal" value="${S.trip.markup}" aria-label="Besar markup standar">
-                </div>
-                <button class="primary" id="t-ok">Simpan Pengaturan</button>
-            `);
-
-            $('#t-ok').onclick = () => {
-                S.trip.name = $('#t-n').value.trim() || 'Trip Baru';
-                S.trip.markup = num($('#t-m').value);
-                S.trip.mt = $('#t-mt').value;
-                save(); close(); render();
-            };
-        }
-
-        /* EVENT LISTENER UPDATE CHECKBOX & STATUS PACKING */
-        document.addEventListener('change', ev => {
-            if (ev.target.dataset.cargoCheck) {
-                const id = ev.target.dataset.cargoCheck;
-                if (ev.target.checked) {
-                    if (!S.selectedCargoIds.includes(id)) S.selectedCargoIds.push(id);
-                } else {
-                    S.selectedCargoIds = S.selectedCargoIds.filter(x => x !== id);
-                }
-                save(); render();
-            } else if (ev.target.dataset.packToggle) {
-                const id = ev.target.dataset.packToggle;
-                const o = S.orders.find(x => x.id === id);
-                if (o) {
-                    o.packed = ev.target.checked;
-                    save(); render();
-                }
-            } else if (ev.target.dataset.pm) {
-                const id = ev.target.dataset.pm;
-                const o = S.orders.find(x => x.id === id);
-                if (o) {
-                    o.packMethod = ev.target.value;
-                    save(); render();
-                }
-            }
-        });
-
-        document.addEventListener('click', ev => {
-            const z = ev.target.closest('[data-z]');
-            if (z) {
-                const o = S.orders.find(x => x.id === z.dataset.z);
-                if (o) sheet(`<div class="who text-base mb-2">${e(o.item)}</div><img class="big" style="max-height:70vh" src="${o.photo}" alt="Foto ${e(o.item)}"><button class="primary" id="zc">Tutup Gambar</button>`);
-                return;
-            }
-
-            const t = ev.target.closest('button');
-            if (!t) return;
-            const d = t.dataset;
-
-            if (t.id === 'zc') return close();
-            if (t.id === 'btn-back-dash') { S.tab = 'd'; save(); render(); }
-            else if (t.id === 'btn-packing') { S.tab = 'p'; save(); render(); }
-            else if (t.id === 'btn-open-cargo-export') { openCargoExportModal(); }
-            else if (d.t) { S.tab = d.t; save(); render(); }
-            else if (d.f !== undefined) { S.filter = +d.f; render(); }
-            else if (d.pf !== undefined) { S.packFilter = d.pf; render(); }
-            else if (d.s) { const [i, n] = d.s.split(':'); reqStatus(i, +n); }
-            else if (d.pay) paySheet(d.pay);
-            else if (d.eo) orderSheet(d.eo);
-            else if (d.ec !== undefined) custSheet(d.ec);
-            else if (t.id === 'fab') orderSheet();
-            else if (t.id === 'gear') tripSheet();
-            else if (t.id === 'bak') exportBackup();
-            else if (t.id === 'btn-import') $('#import-file').click();
-            else if (t.id === 'newtrip') {
-                if (!t.dataset.s) { t.dataset.s = 1; t.textContent = 'Yakin? Pesanan direset, data pelanggan tetap ada. Ketuk lagi'; return; }
-                S.history.push({ name: S.trip.name, summary: summary(), ts: Date.now() });
-                S.orders = [];
-                S.selectedCargoIds = [];
-                S.trip.name = 'Trip Baru';
-                S.filter = -1;
-                S.tab = 'q';
-                save(); render();
-            }
-            else if (t.id === 'live') liveRate(t);
-        });
-
-        document.addEventListener('input', ev => {
-            if (ev.target.id === 'q-search') {
-                S.searchQuery = ev.target.value;
-                render();
-                const el = $('#q-search');
-                if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-                return;
-            }
-            const c = ev.target.dataset.r;
-            if (c) {
-                S.rates[c] = num(ev.target.value);
-                S.ratesAt = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
-                save();
-            }
-        });
-
-        document.addEventListener('change', ev => {
-            if (ev.target.id === 'import-file') {
-                const file = ev.target.files[0];
-                if (!file) return;
-                const reader = new FileReader();
-                reader.onload = e => {
-                    try {
-                        const imported = JSON.parse(e.target.result);
-                        if (imported && (imported.orders || imported.customers)) {
-                            S = Object.assign(def(), imported);
-                            save(); render();
-                            toast('Data cadangan berhasil diimpor! ✔', 3000);
-                        } else {
-                            toast('Format file cadangan JSON tidak valid.', 3000);
-                        }
-                    } catch (err) {
-                        toast('Gagal membaca file cadangan JSON.', 3000);
-                    }
-                };
-                reader.readAsText(file);
-            }
-        });
-
-        function exportBackup() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(S, null, 2));
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", `jastip-cadangan-${S.trip.name.replace(/\s+/g, '-').toLowerCase()}.json`);
-            document.body.appendChild(dlAnchorElem);
-            dlAnchorElem.click();
-            dlAnchorElem.remove();
-            toast('File cadangan JSON berhasil diunduh ✔', 3000);
-        }
-
-        async function liveRate(b) {
-            b.textContent = 'Mengambil kurs terbaru…';
-            try {
-                const ac = new AbortController();
-                setTimeout(() => ac.abort(), 7000);
-                const res = await fetch('https://open.er-api.com/v6/latest/IDR', { signal: ac.signal });
-                const j = await res.json();
-                if (j && j.rates) {
-                    Object.keys(S.rates).forEach(c => {
-                        if (j.rates[c]) S.rates[c] = Math.round(1 / j.rates[c] * 100) / 100;
-                    });
-                    S.ratesAt = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) + ' (Otomatis)';
-                    save(); render();
-                    toast('Kurs mata uang berhasil diperbarui ✔', 3000);
-                } else {
-                    throw new Error('Rates response error');
-                }
-            } catch (er) {
-                b.textContent = 'Ambil Kurs Terbaru (Online)';
-                toast('Gagal mengambil kurs otomatis. Silakan isi kurs manual.', 4000);
-            }
-        }
-
-        render();
-    </script>
-</body>
-</html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Catatan Jastip</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);--bg:#f2f5f2;--card:#fff;--ink:#12302b;--mute:#62766f;--line:#dbe4df;--hi:#e8344e;--ok:#1a8a5a;--soft:#e4efe9;--sun:#ffd23f}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1a17;--card:#162824;--ink:#e7f1ed;--mute:#91a8a0;--line:#26403a;--soft:#1d332d}}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 'Plus Jakarta Sans',system-ui,sans-serif;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
+header{padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
+h2{font-size:16px;font-weight:800;margin:20px 0 8px}
+.sub{color:var(--mute);font-size:13px}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;border:0;border-radius:12px;min-height:44px;padding:0 14px;background:var(--soft);font-weight:600}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,a:focus-visible{outline:3px solid var(--sun);outline-offset:1px}
+main{padding:0 14px;max-width:560px;margin:0 auto}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0;scrollbar-width:none}
+.chip{flex:none;min-height:36px;padding:0 12px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:10px 0}
+.row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.who{font-weight:800}.item{font-size:16px;font-weight:600}
+.price{font-weight:800;font-size:17px;text-align:right}
+.fx{font-size:12px;color:var(--mute)}
+.steps{display:flex;gap:4px;margin:10px 0 8px}
+.steps button{flex:1;min-height:30px;padding:0;border-radius:8px;font-size:10px;white-space:nowrap;overflow:hidden;background:var(--line);color:var(--mute)}
+.steps button.done{background:var(--soft);color:var(--ink)}
+.steps button.cur{background:var(--ink);color:var(--bg)}
+.acts{display:flex;gap:8px}
+.go{flex:1;background:var(--hi);color:#fff;font-weight:800}
+.wa{background:#25d366;color:#053b1c;display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 14px;border-radius:12px;font-weight:700;text-decoration:none}
+.tag{display:inline-block;font-size:12px;border-radius:99px;padding:1px 8px;font-weight:600}
+.lunas{background:#d6f3e3;color:#0d6a42}.utang{background:#ffe3e7;color:#b3182f}
+.nav{position:fixed;left:0;right:0;bottom:0;display:flex;background:var(--card);border-top:1px solid var(--line);padding:6px 8px calc(6px + env(safe-area-inset-bottom,0px));gap:6px}
+.nav button{flex:1;background:none;min-height:48px;padding:0 4px;font-size:14px}
+.nav button.on{background:var(--soft);font-weight:800}
+.fab{position:fixed;right:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));background:var(--hi);color:#fff;font-weight:800;border-radius:99px;min-height:52px;padding:0 20px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.hero{background:var(--ink);color:var(--bg);border-radius:18px;padding:16px;margin:10px 0}
+.hero b{display:block;font-size:30px;font-weight:800;letter-spacing:-.02em}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.grid .card{margin:0}.grid b{display:block;font-size:17px}
+.bar{height:6px;border-radius:9px;background:var(--line);margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:5}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}
+input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:8px 12px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.prev{background:var(--soft);border-radius:12px;padding:10px 12px;margin:12px 0;font-weight:600}
+.primary{width:100%;background:var(--hi);color:#fff;font-weight:800;min-height:50px;margin-top:6px}
+.toast{position:fixed;left:12px;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;z-index:9;max-width:536px;margin:auto}
+.warn{background:#fff3c4;color:#5b4700;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px}
+.empty{text-align:center;color:var(--mute);padding:40px 10px}
+.found{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;cursor:zoom-in;border:1px solid var(--line)}
+.big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--soft);margin-top:6px}
+pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
+@media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body>
+<header><div><h1 id="tn"></h1><div class="sub" id="ts"></div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
+<main id="m"></main>
+<button class="fab" id="fab">+ Pesanan</button>
+<nav class="nav"><button data-t="q">Pesanan</button><button data-t="p">Packing</button><button data-t="c">Daftar pembeli</button><button data-t="d">Trip</button></nav>
+<div id="ov"></div><div id="tt"></div>
+<script>
+const CUR={JPY:['¥',110],KRW:['₩',11.6],SGD:['S$',12900],THB:['฿',490],HKD:['HK$',2100],USD:['$',16400],MYR:['RM',3900],TWD:['NT$',520],EUR:['€',19200],AUD:['A$',10900],CNY:['CN¥',2300]};
+const ST=['Dicari','Ketemu','Dibeli','Dibayar','OTW Indo','Done'];
+const CAT=['Skincare','Makeup','Obat & Vitamin','Snack & Makanan','Fashion','Lainnya'];
+const K='jastip-v1';
+const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:''});
+let S;try{S=Object.assign(def(),JSON.parse(localStorage.getItem(K)||'{}'))}catch(e){S=def()}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Memori HP penuh, perubahan terakhir belum tersimpan. Simpan cadangan & hapus beberapa foto ya.',8000)}};
+const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
+const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const idr=n=>'Rp '+Math.round(n).toLocaleString('id-ID');
+const rb=n=>n>=1e6?'Rp '+(n/1e6).toFixed(2).replace(/\.?0+$/,'').replace('.',',')+' jt':n>=1000?'Rp '+String(+(n/1000).toFixed(1)).replace('.',',')+'rb':idr(n);
+const num=v=>{const x=parseFloat(String(v).replace(',','.'));return isNaN(x)?0:x};
+const sym=c=>(CUR[c]||[c])[0];
+const fx=(n,c)=>sym(c)+' '+n.toLocaleString('id-ID',{maximumFractionDigits:2});
+const cust=id=>S.customers.find(c=>c.id===id)||{name:'(hapus)',wa:'',notes:''};
+const cost=o=>o.amt*o.qty*o.rate;
+const mk=o=>o.mt==='idr'?o.markup*o.qty:cost(o)*o.markup/100;
+const sell=o=>Math.ceil((cost(o)+mk(o))/500)*500;
+const paidOf=o=>o.paidAmt||0,sisa=o=>Math.max(0,sell(o)-paidOf(o));
+S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
+if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1;save()}
+const mkl=o=>o.mt==='idr'?'+'+idr(o.markup)+'/pcs':'+'+o.markup+'%';
+const bought=o=>o.status>=2;
+const waNum=n=>{n=String(n).replace(/\D/g,'');return n.startsWith('0')?'62'+n.slice(1):n.startsWith('8')?'62'+n:n};
+const waLink=(w,t)=>'https://wa.me/'+waNum(w)+'?text='+encodeURIComponent(t);
+function msg(o,st){const n=cust(o.cid).name,p=rb(sell(o)),i=o.item+(o.qty>1?' x'+o.qty:'');
+return [`Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
+`Halo ${n}, ${i} ketemu${o.store?' di '+o.store:''}! Harganya ${p}, konfirmasi ya?`,
+`Halo ${n}, ${i} sudah kubeli ✅ Total ${p}. Kalau belum transfer, ditunggu ya 🙏`,
+`Makasih ${n}! Pembayaran ${p} untuk ${i} sudah kuterima 💚`,
+`Halo ${n}, ${i} sudah OTW Indo ✈️ Nanti kukabarin lagi kalau sudah sampai ya!`,
+`Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, makasih banyak! 💚`][st]}
+const payMsg=(o,a)=>`Makasih ${cust(o.cid).name}! Pembayaran ${idr(a)} untuk ${o.item} sudah kuterima 💚 `+(sisa(o)>0?'Sisa '+idr(sisa(o))+' ya.':'Sudah lunas ✅')
+function toast(html,ms=6000){const t=$('#tt');t.innerHTML='<div class="toast">'+html+'</div>';clearTimeout(toast.h);toast.h=setTimeout(()=>t.innerHTML='',ms)}
+function sheet(html){$('#ov').innerHTML='<div class="scrim" id="sc"><div class="sheet" role="dialog">'+html+'</div></div>';$('#sc').onclick=ev=>{if(ev.target.id==='sc')close()}}
+const close=()=>{$('#ov').innerHTML=''};
+function reqStatus(id,i){const o=S.orders.find(x=>x.id===id);if(i===3&&sisa(o)>0)paySheet(id);else setStatus(id,i)}
+function setStatus(id,i){const o=S.orders.find(x=>x.id===id);o.status=i;save();render();
+toast(`<span>${ST[i]} ✔ ${e(cust(o.cid).name)}${i===5&&sisa(o)>0?' · masih sisa '+rb(sisa(o)):''}</span>`+(cust(o.cid).wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(cust(o.cid).wa,msg(o,i))}">Kabari WA</a>`:'<span class="fx">(belum ada nomor WA)</span>'))}
+function stat(list){const b=list.filter(bought),rev=b.reduce((s,o)=>s+sell(o),0),c=b.reduce((s,o)=>s+cost(o),0);
+const paid=list.reduce((s,o)=>s+paidOf(o),0);return{n:list.length,nb:b.length,rev,c,m:rev-c,paid,out:b.reduce((s,o)=>s+sisa(o),0),wait:list.filter(o=>!bought(o)).reduce((s,o)=>s+sell(o),0)}}
+
+function render(){
+$('#tn').textContent=S.trip.name;const s=stat(S.orders);$('#ts').textContent=S.orders.length+' pesanan · untung '+rb(s.m);
+document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
+$('#fab').style.display=(S.tab==='c'||S.tab==='p')?'none':'';
+$('#m').innerHTML=S.tab==='q'?vQ():S.tab==='p'?vP():S.tab==='c'?vC():vD();}
+
+function vQ(){
+const cn=i=>S.orders.filter(o=>i<0||o.status===i).length;
+let h='<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`;
+const q=(S.q||'').toLowerCase();const L=S.orders.filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q))).sort((a,b)=>b.ts-a.ts);
+if(!L.length)return h+`<div class="empty">${S.orders.length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div>`;
+return h+L.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
+return `<div class="card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
+<div class="fx">${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
+<div><div class="price">${idr(sell(o))}</div><div style="text-align:right">${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:32px;padding:0 10px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sebagian · sisa '+rb(sisa(o)):'Belum bayar'}</button>`:''}</div></div></div>
+<div class="steps">${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}">${t}</button>`).join('')}</div>
+<div class="acts">${nx?`<button class="go" data-s="${o.id}:${o.status+1}">${nx} ›</button>`:'<button class="go" style="background:var(--ok)" disabled>Selesai 🎉</button>'}
+${c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o.status))}">WA</a>`:''}
+<button data-eo="${o.id}" aria-label="Ubah">⋯</button></div></div>`}).join('')}
+
+function vC(){
+const add='<button class="primary" data-ec="">+ Pelanggan baru</button>';
+if(!S.customers.length)return add+'<div class="empty">Belum ada pelanggan. Tambah dulu biar gampang pas catat titipan.</div>';
+return add+S.customers.map(c=>{const os=S.orders.filter(o=>o.cid===c.id),t=stat(os);
+return `<div class="card"><div class="row"><div><div class="who">${e(c.name)}</div><div class="fx">${e(c.wa||'belum ada nomor WA')}</div></div>
+<div style="text-align:right"><div class="fx">${os.length} pesanan</div>${t.out>0?`<span class="tag utang">Utang ${rb(t.out)}</span>`:os.length?'<span class="tag lunas">Beres</span>':''}</div></div>
+${c.notes?`<div style="margin-top:6px">${e(c.notes)}</div>`:''}<div class="acts" style="margin-top:10px"><button data-ec="${c.id}" style="flex:1">Ubah</button>
+${c.wa&&t.out>0?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,tagih(c))}">Tagih</a>`:''}</div></div>`}).join('')}
+
+function tagih(c){const os=S.orders.filter(o=>o.cid===c.id&&bought(o)&&sisa(o)>0);
+return `Halo ${c.name}, ini rincian yang belum dibayar ya:\n`+os.map(o=>'• '+o.item+(o.qty>1?' x'+o.qty:'')+': '+(paidOf(o)>0?'sisa '+rb(sisa(o))+' (dari '+rb(sell(o))+')':rb(sell(o)))).join('\n')+`\nTotal ${idr(os.reduce((x,o)=>x+sisa(o),0))}. Makasih banyak 🙏`}
+function paySheet(id){const o=S.orders.find(x=>x.id===id),c=cust(o.cid),p=paidOf(o),r=sisa(o);
+sheet(`<h1>Pembayaran</h1><div class="sub">${e(c.name)} · ${e(o.item)}</div>
+<div class="prev">Total ${idr(sell(o))}<br>Sudah dibayar ${idr(p)}<br><b>Sisa ${idr(r)}</b></div>
+${r>0?`<button class="primary" id="pf">Bayar penuh (${idr(r)})</button><label>Atau bayar sebagian (nominal Rp)</label><input id="pn" inputmode="numeric" placeholder="mis. 100000"><button class="primary" id="pp" style="background:var(--ink);color:var(--bg)">Catat pembayaran sebagian</button>`:'<div class="prev">Sudah lunas 🎉</div>'}
+${p>0?'<button style="width:100%;margin-top:10px;color:var(--hi)" id="pz">Salah catat? Reset pembayaran</button>':''}`);
+const apply=a=>{const x=Math.min(a,r);o.paidAmt=p+x;if(sisa(o)<=0&&o.status<3)o.status=3;save();close();render();
+toast(`<span>${sisa(o)>0?'Tercatat sebagian ✔ sisa '+rb(sisa(o)):'Lunas ✔'}</span>`+(c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,payMsg(o,x))}">Kabari WA</a>`:''))};
+if(r>0){$('#pf').onclick=()=>apply(r);$('#pp').onclick=()=>{const a=Math.round(num(String($('#pn').value).replace(/\./g,'')));if(a<=0)return toast('Isi nominalnya dulu ya',2500);apply(a)}}
+if(p>0)$('#pz').onclick=()=>{const b=$('#pz');if(!b.dataset.cf){b.dataset.cf=1;return b.textContent='Yakin? Ketuk lagi untuk reset ke Rp 0'}o.paidAmt=0;if(o.status===3)o.status=2;save();close();render()}}
+
+function byCust(){return S.customers.map(c=>({c,...stat(S.orders.filter(o=>o.cid===c.id))})).filter(x=>x.n)}
+function topCat(){const m={};S.orders.filter(bought).forEach(o=>m[o.cat]=(m[o.cat]||0)+sell(o));const a=Object.entries(m).sort((x,y)=>y[1]-x[1])[0];return a?a[0]:'-'}
+function summary(){const s=stat(S.orders),bc=byCust().sort((a,b)=>b.rev-a.rev)[0];
+return `✈️ Rekap ${S.trip.name}\n\nPesanan dibeli: ${s.nb} dari ${s.n}\nSudah Done (terkirim): ${S.orders.filter(o=>o.status===5).length}\nOmzet: ${idr(s.rev)}\nModal: ${idr(s.c)}\nUntung bersih: ${idr(s.m)}${s.rev?' ('+(s.m/s.rev*100).toFixed(1).replace('.',',')+'%)':''}\nUang masuk: ${idr(s.paid)}\nBelum dibayar: ${idr(s.out)}\nPelanggan teratas: ${bc&&bc.rev?bc.c.name+' ('+rb(bc.rev)+')':'-'}\nKategori terlaris: ${topCat()}`}
+
+function vD(){const s=stat(S.orders),bc=byCust().sort((a,b)=>b.rev-a.rev),mx=Math.max(1,...bc.map(x=>x.rev));
+const used=[...new Set(S.orders.map(o=>o.cur).concat(S.trip.cur))];
+return `${S.ratesAt?'':'<div class="warn">Kurs masih angka perkiraan. Cek & isi kurs asli di bawah sebelum mulai belanja ya.</div>'}
+<div class="hero"><span class="sub" style="color:inherit;opacity:.75">Untung bersih (barang yang sudah dibeli)</span><b>${idr(s.m)}</b>
+<span style="opacity:.8">Omzet ${idr(s.rev)} − modal ${idr(s.c)}</span></div>
+<div class="grid"><div class="card"><span class="fx">Total pesanan</span><b>${s.n} <span class="fx">(${s.nb} dibeli)</span></b></div>
+<div class="card"><span class="fx">Uang masuk</span><b>${idr(s.paid)}</b></div>
+<div class="card"><span class="fx">Belum dibayar</span><b style="color:var(--hi)">${idr(s.out)}</b></div>
+<div class="card"><span class="fx">Masih dicari/belum dibeli</span><b>${idr(s.wait)}</b></div></div>
+<h2>Per pelanggan</h2>${bc.length?bc.map(x=>`<div class="card"><div class="row"><span class="who">${e(x.c.name)}</span><span><b>${idr(x.rev)}</b></span></div>
+<div class="fx">${x.n} pesanan · untung ${rb(x.m)}${x.out>0?' · utang '+rb(x.out):''}</div><div class="bar"><i style="width:${x.rev/mx*100}%"></i></div></div>`).join(''):'<div class="sub">Belum ada data.</div>'}
+<h2>Kurs (Rp per 1 mata uang)</h2><div class="card">${used.map(c=>`<label>${c}</label><input inputmode="decimal" data-r="${c}" value="${S.rates[c]??''}">`).join('')}
+<button class="primary" style="background:var(--ink);color:var(--bg)" id="live">Coba ambil kurs terbaru</button>
+<div class="fx" style="margin-top:6px">${S.ratesAt?'Terakhir diatur: '+S.ratesAt:'Belum pernah diatur'}. Kurs tiap pesanan dikunci saat dicatat, jadi ganti kurs nggak mengubah pesanan lama.</div></div>
+<h2>Akhir trip</h2><pre>${e(summary())}</pre>
+<div class="acts"><a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(summary())}" style="flex:1">Bagikan ke WA</a><button id="bak">Simpan cadangan</button></div>
+<input type="file" id="imp" accept=".json,application/json" hidden><button style="width:100%;margin-top:8px" data-imp="1">Pulihkan dari cadangan</button>
+<button class="primary" style="background:var(--soft);color:var(--ink);margin-top:10px" id="newtrip">Tutup trip & mulai trip baru</button>`}
+
+function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct'};
+let photo=o.photo||'';
+sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
+<label>Pelanggan</label><select id="f-c">${S.customers.map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
+<div id="nc" hidden><label>Nama pelanggan baru</label><input id="f-nn" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="f-nw" inputmode="tel" placeholder="0812…"></div>
+<label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
+<label>Toko</label><input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi">
+<div class="two"><div><label>Kategori</label><select id="f-k">${CAT.map(k=>`<option ${k===o.cat?'selected':''}>${k}</option>`).join('')}</select></div><div><label>Dibawa lewat</label><select id="f-pm"><option value="kargo" ${(o.pm||'kargo')==='kargo'?'selected':''}>Kargo</option><option value="koper" ${o.pm==='koper'?'selected':''}>Koper</option></select></div></div>
+<div class="two"><div><label>Mata uang</label><select id="f-u">${Object.keys(S.rates).map(c=>`<option ${c===o.cur?'selected':''}>${c}</option>`).join('')}</select></div>
+<div><label>Harga per pcs</label><input id="f-a" inputmode="decimal" value="${o.amt}"></div></div>
+<label>Jumlah</label><input id="f-q" inputmode="numeric" value="${o.qty}">
+<label>Markup (untung)</label><div class="two"><select id="f-mt"><option value="pct" ${o.mt!=='idr'?'selected':''}>Persen (%)</option><option value="idr" ${o.mt==='idr'?'selected':''}>Nominal (Rp per pcs)</option></select><input id="f-m" inputmode="decimal" value="${o.markup}" aria-label="Besar markup"></div>
+<label>Foto produk</label><div id="pb"></div>
+<input type="file" id="p-cam" accept="image/*" capture="environment" hidden><input type="file" id="p-gal" accept="image/*" hidden>
+<div class="prev" id="pv"></div>
+<button class="primary" id="f-ok">${id?'Simpan':'Catat pesanan'}</button>
+<button style="width:100%;margin-top:8px" id="scan">📷 Foto struk (isi otomatis)</button><input type="file" id="f-f" accept="image/*" capture="environment" hidden>
+<div id="sr"></div>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="del">Hapus pesanan</button>':''}`);
+const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]||0,a=num($('#f-a').value)*Math.max(1,num($('#f-q').value))*r,m=num($('#f-m').value),t=$('#f-mt').value,p=Math.ceil((a+(t==='idr'?m*Math.max(1,num($('#f-q').value)):a*m/100))/500)*500;
+$('#pv').innerHTML=a?`Modal ≈ ${idr(a)}<br>Jual ${idr(p)} <span class="fx">(untung ${idr(p-a)})</span>`:'Isi harga dulu, nanti kuhitungin ke rupiah.'};
+['f-u','f-a','f-q','f-m','f-mt'].forEach(i=>$('#'+i).oninput=pv);pv();
+$('#f-mt').onchange=()=>{const i=$('#f-m'),n=num(i.value),t=$('#f-mt').value;if(t==='idr'&&n<1000)i.value='';if(t==='pct'&&n>100)i.value=S.trip.mt==='pct'?S.trip.markup:15;pv()};
+const paint=()=>{$('#pb').innerHTML=photo?`<img class="big" src="${photo}" alt="Foto produk"><button id="pr" style="width:100%;margin-top:6px">Hapus foto</button>`:'<div class="two"><button id="pc">📷 Kamera</button><button id="pg">🖼 Galeri</button></div>';
+if(photo)$('#pr').onclick=()=>{photo='';paint()};else{$('#pc').onclick=()=>$('#p-cam').click();$('#pg').onclick=()=>$('#p-gal').click()}};
+const pick=async ev=>{const f=ev.target.files[0];if(!f)return;try{photo=await shrink(f);paint()}catch(x){toast('Fotonya nggak bisa dibuka, coba foto lain ya',3000)}};
+$('#p-cam').onchange=pick;$('#p-gal').onchange=pick;paint();
+$('#f-c').onchange=()=>{$('#nc').hidden=$('#f-c').value!=='+'};$('#nc').hidden=$('#f-c').value!=='+';
+$('#f-ok').onclick=()=>{let cid=$('#f-c').value;
+if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelanggannya dulu ya',2500);cid=uid();S.customers.push({id:cid,name:n,wa:$('#f-nw').value.trim(),notes:''})}
+if(!cid)return toast('Pilih pelanggan dulu ya',2500);
+const item=$('#f-i').value.trim(),amt=num($('#f-a').value);if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
+const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diisi',2500);
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo,pm:$('#f-pm').value};
+if(id){const x=S.orders.find(z=>z.id===id);if(x.cur!==cur||x.amt!==amt&&false)d.rate=S.rates[cur];Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
+else S.orders.push({...d,id:uid(),rate:S.rates[cur],status:0,paidAmt:0,ts:Date.now()});
+S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
+if(id){$('#del').onclick=()=>{if($('#del').dataset.cf){S.orders=S.orders.filter(x=>x.id!==id);save();close();render()}else{$('#del').dataset.cf=1;$('#del').textContent='Yakin hapus? Ketuk lagi'}}}
+$('#scan').onclick=()=>$('#f-f').click();
+$('#f-f').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;const r=$('#sr');r.innerHTML='<div class="sub">Lagi baca struknya…</div>';
+try{const sm=await claude.use('sample');if(!sm)throw{code:'na'};
+const d=await sm.json('Ini foto struk belanja toko luar negeri. Ekstrak setiap barang. Balas HANYA JSON array: [{"item":"nama barang (ringkas)","amount":harga satuan angka,"currency":"kode ISO 3 huruf"}]. Kalau ragu soal mata uang, tebak dari negara/simbol di struk. Jangan mengarang barang yang tidak terbaca.',{images:f,modelTier:'quick',cache:false});
+const L=(Array.isArray(d)?d:[]).filter(x=>x&&x.item&&num(x.amount)>0).slice(0,12);
+if(!L.length)return r.innerHTML='<div class="warn">Nggak ada barang yang kebaca. Coba foto lebih dekat & terang, atau isi manual.</div>';
+r.innerHTML='<div class="sub" style="margin-top:8px">Ketemu '+L.length+' barang. Ketuk untuk isi form, cek lagi sebelum dicatat:</div><div class="found">'+L.map((x,i)=>`<button class="chip" data-x="${i}">${e(x.item)} · ${e(x.currency||'')} ${e(x.amount)}</button>`).join('')+'</div>';
+r.onclick=c=>{const b=c.target.closest('[data-x]');if(!b)return;const x=L[b.dataset.x];$('#f-i').value=x.item;$('#f-a').value=x.amount;const cc=String(x.currency||'').toUpperCase();if(S.rates[cc])$('#f-u').value=cc;pv()}}
+catch(er){r.innerHTML='<div class="warn">'+(er.code==='not_granted'?'Izin ditolak, jadi struk belum dibaca.':'Scan struk belum bisa dipakai di sini. Isi manual dulu ya.')+'</div>'}}}
+
+const SHIP=['Diproses forwarder','OTW Indonesia','Tiba di Indonesia'];
+const shipIds=()=>Object.keys(S.ships).filter(r=>S.orders.some(o=>o.resi===r));
+function vP(){const bo=S.orders.filter(bought),k=shipIds(),h0=`<div class="chips"><button class="chip ${S.pk==='k'?'':'on'}" data-pk="siap">Perlu dipacking</button><button class="chip ${S.pk==='k'?'on':''}" data-pk="k">Kargo forwarder (${k.length})</button></div>`;
+if(S.pk==='k')return h0+vK(k);
+const pkd=bo.filter(o=>o.packed).length,pc=bo.length?Math.round(pkd/bo.length*100):0,L=bo.filter(o=>!o.resi);
+S.pick=S.pick.filter(id=>L.some(o=>o.id===id&&(o.pm||'kargo')==='kargo'));
+let h=h0+`<div class="hero"><span style="opacity:.75">Progress packing</span><b>${pkd} / ${bo.length} barang (${pc}%)</b><div class="bar"><i style="width:${pc}%;background:var(--sun)"></i></div></div>`;
+if(!L.length)return h+`<div class="empty">${bo.length?'Semua barang sudah masuk resi. Lihat tab Kargo forwarder.':'Belum ada barang yang dibeli.<br>Ubah status pesanan jadi <b>Dibeli</b> dulu.'}</div>`;
+const g={};L.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
+const cb='style="width:22px;min-height:22px"',lb='style="margin:0;display:flex;gap:6px;align-items:center"';
+h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>{const kg=(o.pm||'kargo')==='kargo';
+return `<div class="row" style="margin-top:10px;align-items:center">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}</div>
+<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;align-items:center"><label ${lb}><input type="checkbox" ${cb} data-pkd="${o.id}" ${o.packed?'checked':''}>Sudah dipacking</label>
+<select data-pm="${o.id}" style="width:auto;min-height:36px"><option value="kargo" ${kg?'selected':''}>Kargo</option><option value="koper" ${kg?'':'selected'}>Koper</option></select>
+${kg?`<label ${lb}><input type="checkbox" ${cb} data-pick="${o.id}" ${S.pick.includes(o.id)?'checked':''}>Masuk resi</label>`:''}</div></div></div>`}).join('')+'</div>').join('');
+return h+(S.pick.length?`<button class="primary" data-ship="">Buat resi kargo (${S.pick.length} barang)</button>`:'<div class="fx" style="text-align:center;margin-top:10px">Centang "Masuk resi" di barang kargo, lalu buat resi kalau forwarder sudah memproses.</div>')}
+function vK(k){if(!k.length)return '<div class="empty">Belum ada resi kargo.<br>Pilih barang kargo di tab <b>Perlu dipacking</b>, lalu <b>Buat resi</b>.</div>';
+return k.map(r=>{const os=S.orders.filter(o=>o.resi===r),m=S.ships[r];
+return `<div class="card"><div class="row"><div><div class="who">${e(r)}</div><div class="fx">${e(m.fw||'Forwarder ?')} · ${os.reduce((x,o)=>x+o.qty,0)} pcs</div></div><span class="tag" style="background:var(--soft);color:var(--ink)">${SHIP[m.st||0]}</span></div>
+<div class="fx" style="margin:8px 0">${os.map(o=>e(cust(o.cid).name+': '+o.item+' ×'+o.qty)).join('<br>')}</div>
+<div class="who">Total jual ${idr(os.reduce((x,o)=>x+sell(o),0))}</div>
+<div class="acts" style="margin-top:10px"><button class="go" data-pdf="${e(r)}">Simpan PDF</button><a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(shipText(r))}">Bagikan</a><button data-ship="${e(r)}">Ubah</button></div></div>`}).join('')}
+function shipText(r){const os=S.orders.filter(o=>o.resi===r),m=S.ships[r]||{};
+return `📦 Packing list kargo ${r}\n${m.fw?'Forwarder: '+m.fw+'\n':''}Status: ${SHIP[m.st||0]}\n\n`+os.map((o,i)=>`${i+1}. [${cust(o.cid).name}] ${o.item} ×${o.qty}${S.pdfPrice!==false?' – '+rb(sell(o)):''}`).join('\n')}
+function shipSheet(r){const m=r?S.ships[r]:{fw:'',st:0},ids=r?S.orders.filter(o=>o.resi===r).map(o=>o.id):S.pick.slice(),ck='style="width:22px;min-height:22px"';
+sheet(`<h1>${r?'Ubah resi kargo':'Buat resi kargo'}</h1><div class="sub">${ids.length} barang</div>
+<label>Nomor resi</label><input id="s-r" value="${e(r||'')}" placeholder="mis. KG-2026-9988">
+<label>Nama forwarder</label><input id="s-f" value="${e(m.fw||'')}" placeholder="mis. nama jasa kargo">
+<label>Status kiriman</label><select id="s-s">${SHIP.map((t,i)=>`<option value="${i}" ${(m.st||0)===i?'selected':''}>${t}</option>`).join('')}</select>
+<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="s-p" ${ck} ${S.pdfPrice!==false?'checked':''}>Tampilkan harga jual di PDF</label>
+<button class="primary" id="s-ok">${r?'Simpan perubahan':'Buat resi'}</button>
+${r?'<button class="primary" style="background:var(--ink);color:var(--bg)" id="s-pdf">Simpan PDF</button><button style="width:100%;margin-top:8px;color:var(--hi)" id="s-del">Bongkar resi (barang balik ke daftar packing)</button>':''}
+<button style="width:100%;margin-top:8px" id="s-x">Tutup</button>`);
+$('#s-x').onclick=close;
+const read=()=>{const n=$('#s-r').value.trim();if(!n){toast('Isi nomor resi dulu ya',2500);return}
+if(n!==r&&S.ships[n]){toast('Nomor resi itu sudah dipakai',2500);return}
+S.pdfPrice=$('#s-p').checked;if(r&&n!==r){delete S.ships[r];S.orders.forEach(o=>{if(o.resi===r)o.resi=n})}
+S.ships[n]={fw:$('#s-f').value.trim(),st:+$('#s-s').value,ts:m.ts||Date.now()};
+if(!r){S.orders.forEach(o=>{if(ids.includes(o.id)){o.resi=n;o.packed=true}});S.pick=[];S.pk='k'}
+save();return n};
+$('#s-ok').onclick=()=>{if(read()){close();render()}};
+if(r){$('#s-pdf').onclick=()=>{const n=read();if(n){render();savePdf(n)}};
+$('#s-del').onclick=()=>{const b=$('#s-del');if(!b.dataset.cf){b.dataset.cf=1;return b.textContent='Yakin? Ketuk lagi'}S.orders.forEach(o=>{if(o.resi===r)o.resi=''});delete S.ships[r];save();close();render()}}}
+function pdfBlob(r,price){const d=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=210,M=14,m=S.ships[r]||{},os=S.orders.filter(o=>o.resi===r),T=(t,x,y,o)=>d.text(String(t),x,y,o);let y=M,grand=0;
+d.setFont('helvetica','bold');d.setFontSize(15);T('PACKING LIST KARGO',M,y+5);d.setFontSize(11);T('Resi: '+r,W-M,y+5,{align:'right'});
+d.setFont('helvetica','normal');d.setFontSize(9);y+=11;T(S.trip.name+'  |  '+new Date().toLocaleDateString('id-ID',{dateStyle:'long'}),M,y);y+=5;
+T('Forwarder: '+(m.fw||'-')+'  |  Status: '+SHIP[m.st||0]+'  |  Total: '+os.reduce((x,o)=>x+o.qty,0)+' pcs',M,y);y+=4;d.setDrawColor(150);d.line(M,y,W-M,y);y+=6;
+const g={};os.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
+for(const cid in g){const c=cust(cid);let sub=0;if(y>255){d.addPage();y=M}
+d.setFillColor(228,239,233);d.rect(M,y,W-2*M,7,'F');d.setFont('helvetica','bold');d.setFontSize(10);T(c.name+(c.wa?'  ('+c.wa+')':''),M+2,y+5);y+=10;
+for(const o of g[cid]){const nm=d.splitTextToSize(o.item+(o.store?' ('+o.store+')':''),price?100:140),h=Math.max(o.photo?14:0,nm.length*4.5+3);
+if(y+h>278){d.addPage();y=M}
+if(o.photo){try{const q=d.getImageProperties(o.photo),k=Math.min(12/q.width,12/q.height);d.addImage(o.photo,'JPEG',M,y,q.width*k,q.height*k)}catch(x){}}
+d.setFont('helvetica','normal');d.setFontSize(9);d.text(nm,M+16,y+4);T('x'+o.qty,M+(price?122:150),y+4);
+if(price){T(idr(sell(o)),W-M,y+4,{align:'right'});sub+=sell(o)}
+d.setDrawColor(215);d.line(M,y+h,W-M,y+h);y+=h+2}
+if(price){d.setFont('helvetica','bold');T('Subtotal: '+idr(sub),W-M,y+3,{align:'right'});y+=7;grand+=sub}y+=4}
+if(price){if(y>270){d.addPage();y=M}d.setFont('helvetica','bold');d.setFontSize(11);T('TOTAL HARGA JUAL: '+idr(grand),W-M,y+4,{align:'right'})}
+return d.output('blob')}
+async function savePdf(r){if(!window.jspdf)return toast('Pembuat PDF belum termuat. Cek internet lalu coba lagi.',4000);
+try{const b=pdfBlob(r,S.pdfPrice!==false),fn='packing-list-'+r.replace(/[^\w-]+/g,'_')+'.pdf';
+const dl=typeof claude!=='undefined'?await claude.use('downloads'):null;
+if(dl){await dl.save({filename:fn,data:b});return toast('PDF siap ✔',2500)}
+const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+catch(er){if(er&&er.code==='declined')return;toast('PDF gagal dibuat, coba lagi ya',4000)}}
+addEventListener('input',ev=>{if(ev.target.id==='qs'){S.q=ev.target.value;render();const el=$('#qs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}});
+addEventListener('change',ev=>{const t=ev.target,d=t.dataset,f=id=>S.orders.find(x=>x.id===id);
+if(d.pkd){f(d.pkd).packed=t.checked;save();render()}else if(d.pm){f(d.pm).pm=t.value;save();render()}
+else if(d.pick){S.pick=t.checked?S.pick.concat(d.pick):S.pick.filter(x=>x!==d.pick);save();render()}
+else if(t.id==='imp'){const fl=t.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{try{const j=JSON.parse(rd.result);if(!j||!(j.orders||j.customers))throw 0;S=Object.assign(def(),j);save();render();toast('Cadangan dipulihkan ✔',3000)}catch(x){toast('File cadangan nggak valid',3000)}};rd.readAsText(fl)}});
+async function backup(){const b=new Blob([JSON.stringify(S)],{type:'application/json'}),fn='jastip-cadangan.json';
+try{const dl=typeof claude!=='undefined'?await claude.use('downloads'):null;if(dl){await dl.save({filename:fn,data:b});return}}catch(er){if(er&&er.code==='declined')return}
+const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
+function shrink(f){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const i=new Image();i.onerror=rej;i.onload=()=>{const k=Math.min(1,640/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};i.src=r.result};r.readAsDataURL(f)})}
+function custSheet(id){const c=S.customers.find(x=>x.id===id)||{name:'',wa:'',notes:''};
+sheet(`<h1>${id?'Ubah pelanggan':'Pelanggan baru'}</h1><label>Nama</label><input id="c-n" value="${e(c.name)}" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="c-w" inputmode="tel" value="${e(c.wa)}" placeholder="0812…">
+<label>Catatan (barang favorit, cara antar)</label><textarea id="c-t" rows="3">${e(c.notes)}</textarea><button class="primary" id="c-ok">Simpan</button>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="c-del">Hapus pelanggan</button>':''}`);
+$('#c-ok').onclick=()=>{const n=$('#c-n').value.trim();if(!n)return toast('Nama wajib diisi',2500);const d={name:n,wa:$('#c-w').value.trim(),notes:$('#c-t').value.trim()};
+id?Object.assign(c,d):S.customers.push({id:uid(),...d});save();close();render()};
+if(id)$('#c-del').onclick=()=>{const b=$('#c-del');if(S.orders.some(o=>o.cid===id))return b.textContent='Masih punya pesanan, hapus pesanannya dulu';if(!b.dataset.cf){b.dataset.cf=1;return b.textContent='Yakin hapus? Ketuk lagi'}S.customers=S.customers.filter(x=>x.id!==id);save();close();render()}}
+
+function tripSheet(){sheet(`<h1>Atur trip</h1><label>Nama trip</label><input id="t-n" value="${e(S.trip.name)}" placeholder="mis. Osaka Oktober">
+<label>Markup standar</label><div class="two"><select id="t-mt"><option value="pct" ${S.trip.mt!=='idr'?'selected':''}>Persen (%)</option><option value="idr" ${S.trip.mt==='idr'?'selected':''}>Nominal (Rp per pcs)</option></select><input id="t-m" inputmode="decimal" value="${S.trip.markup}" aria-label="Besar markup standar"></div><button class="primary" id="t-ok">Simpan</button>`);
+$('#t-ok').onclick=()=>{S.trip.name=$('#t-n').value.trim()||'Trip baru';S.trip.markup=num($('#t-m').value);S.trip.mt=$('#t-mt').value;save();close();render()}}
+
+document.addEventListener('click',ev=>{const z=ev.target.closest('[data-z]');if(z){const o=S.orders.find(x=>x.id===z.dataset.z);if(o)sheet(`<div class="who">${e(o.item)}</div><img class="big" style="max-height:70vh" src="${o.photo}" alt="Foto ${e(o.item)}"><button class="primary" id="zc">Tutup</button>`);return}
+const t=ev.target.closest('button');if(!t)return;const d=t.dataset;
+if(t.id==='zc')return close();
+if(d.t){S.tab=d.t;save();render()}else if(d.f){S.filter=+d.f;render()}
+else if(d.s){const[i,n]=d.s.split(':');reqStatus(i,+n)}else if(d.pay)paySheet(d.pay);else if(d.pk){S.pk=d.pk;save();render()}else if(d.ship!==undefined)shipSheet(d.ship||null);else if(d.pdf)savePdf(d.pdf);else if(d.imp){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Ini menimpa data sekarang. Ketuk lagi untuk pilih file';return}$('#imp').click()}else if(d.eo)orderSheet(d.eo);else if(d.ec!==undefined)custSheet(d.ec);
+else if(t.id==='fab')orderSheet();else if(t.id==='gear')tripSheet();
+else if(t.id==='bak')backup()
+else if(t.id==='newtrip'){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Yakin? Pesanan direset, pelanggan tetap. Ketuk lagi';return}
+S.history.push({name:S.trip.name,summary:summary()});S.orders=[];S.trip.name='Trip baru';S.filter=-1;S.tab='q';save();render()}
+else if(t.id==='live')live(t)});
+document.addEventListener('input',ev=>{const c=ev.target.dataset.r;if(c){S.rates[c]=num(ev.target.value);S.ratesAt=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});save()}});
+async function live(b){b.textContent='Lagi ambil kurs…';try{const ac=new AbortController();setTimeout(()=>ac.abort(),7000);
+const j=await (await fetch('https://open.er-api.com/v6/latest/IDR',{signal:ac.signal})).json();
+Object.keys(S.rates).forEach(c=>{if(j.rates&&j.rates[c])S.rates[c]=Math.round(1/j.rates[c]*100)/100});
+S.ratesAt=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'})+' (otomatis)';save();render();toast('Kurs terbaru masuk ✔',3000)}
+catch(er){b.textContent='Coba ambil kurs terbaru';toast('Kurs otomatis belum bisa diambil di sini. Isi manual ya.',4500)}}
+render();
+</script></body></html>
