@@ -395,21 +395,21 @@
         /* Packing List Styling */
         .pack-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 12px;
-            padding: 10px;
+            padding: 12px;
             border-radius: 12px;
             background: var(--bg);
             margin-top: 8px;
             transition: all 0.2s ease;
         }
         .pack-item.packed {
-            opacity: 0.55;
-            text-decoration: line-through;
+            opacity: 0.6;
         }
         .pack-checkbox {
             width: 24px;
             height: 24px;
+            margin-top: 2px;
             border-radius: 6px;
             accent-color: var(--ok);
             cursor: pointer;
@@ -644,13 +644,15 @@
             }).join('');
         }
 
-        /* FITUR PACKING LIST (DITAMPILKAN DIBAGIAN ATAS / DEDICATED VIEW) */
+        /* FITUR PACKING LIST WITH KOPER / KARGO & EXPORT PDF */
         function vP() {
-            // Hanya barang yang sudah Dibeli (status >= 2)
             const boughtOrders = S.orders.filter(bought);
             const total = boughtOrders.length;
             const packedCount = boughtOrders.filter(o => o.packed).length;
             const pct = total ? Math.round((packedCount / total) * 100) : 0;
+
+            const totalKoper = boughtOrders.filter(o => (o.packMethod || 'koper') === 'koper').length;
+            const totalKargo = boughtOrders.filter(o => o.packMethod === 'kargo').length;
 
             let filterMode = S.packFilter || 'all';
             let filtered = boughtOrders;
@@ -666,16 +668,26 @@
 
             let html = `
                 <div class="hero mb-4">
-                    <span class="sub" style="color:inherit;opacity:.8">🧳 Checklist Packing Koper & Dus</span>
-                    <b>${packedCount} / ${total} Barang</b>
+                    <div class="flex justify-between items-start gap-2">
+                        <div>
+                            <span class="sub" style="color:inherit;opacity:.8">🧳 Checklist Packing & Pengiriman</span>
+                            <b>${packedCount} / ${total} Barang Siap</b>
+                        </div>
+                        <button id="btn-export-pdf" class="bg-red-500 hover:bg-red-600 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow">
+                            <span>📄</span> <span>Export PDF</span>
+                        </button>
+                    </div>
                     <div class="bar mt-2"><i style="width:${pct}%; background:var(--ok)"></i></div>
-                    <span class="text-xs opacity-90 mt-2 block">${pct}% barang dibeli telah siap dipacking</span>
+                    <div class="text-xs opacity-90 mt-2 flex justify-between">
+                        <span>${pct}% barang telah siap</span>
+                        <span><b>${totalKoper}</b> Koper · <b>${totalKargo}</b> Kargo</span>
+                    </div>
                 </div>
 
                 <div class="chips mb-3">
                     <button class="chip ${filterMode === 'all' ? 'on' : ''}" data-pf="all">Semua (${total})</button>
-                    <button class="chip ${filterMode === 'unpacked' ? 'on' : ''}" data-pf="unpacked">Belum Dipacking (${total - packedCount})</button>
-                    <button class="chip ${filterMode === 'packed' ? 'on' : ''}" data-pf="packed">Sudah Dipacking (${packedCount})</button>
+                    <button class="chip ${filterMode === 'unpacked' ? 'on' : ''}" data-pf="unpacked">Belum Siap (${total - packedCount})</button>
+                    <button class="chip ${filterMode === 'packed' ? 'on' : ''}" data-pf="packed">Sudah Siap (${packedCount})</button>
                 </div>
             `;
 
@@ -690,27 +702,143 @@
             Object.keys(groups).forEach(cid => {
                 const c = cust(cid);
                 const items = groups[cid];
+                const custKoper = items.filter(x => (x.packMethod || 'koper') === 'koper').length;
+                const custKargo = items.filter(x => x.packMethod === 'kargo').length;
+
                 html += `
                     <div class="card">
-                        <div class="row mb-2">
+                        <div class="row mb-2 border-b border-slate-100 dark:border-slate-800 pb-2">
                             <div class="who text-base">${e(c.name)}</div>
-                            <span class="fx">${items.filter(x => x.packed).length}/${items.length} Masuk Koper</span>
+                            <span class="fx">${items.filter(x => x.packed).length}/${items.length} Siap (${custKoper} Koper, ${custKargo} Kargo)</span>
                         </div>
-                        ${items.map(o => `
+                        ${items.map(o => {
+                            const method = o.packMethod || 'koper';
+                            return `
                             <div class="pack-item ${o.packed ? 'packed' : ''}">
                                 <input type="checkbox" class="pack-checkbox" data-pk="${o.id}" ${o.packed ? 'checked' : ''}>
-                                ${o.photo ? `<img class="thumb" style="width:42px;height:42px" src="${o.photo}" data-z="${o.id}" alt="Foto">` : ''}
-                                <div style="flex:1">
+                                ${o.photo ? `<img class="thumb" style="width:48px;height:48px" src="${o.photo}" data-z="${o.id}" alt="Foto">` : ''}
+                                <div style="flex:1" class="min-w-0">
                                     <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${e(o.item)} ${o.qty > 1 ? '<span class="text-blue-600 font-extrabold">x' + o.qty + '</span>' : ''}</div>
-                                    <div class="fx">${e(o.store || 'Toko tak dicatat')} · <span class="tag ${o.status === 5 ? 'lunas' : 'utang'}">${ST[o.status]}</span></div>
+                                    <div class="fx mb-2">${e(o.store || 'Toko tak dicatat')} · <span class="tag ${o.status === 5 ? 'lunas' : 'utang'}">${ST[o.status]}</span></div>
+
+                                    <!-- Pengaturan Koper vs Kargo -->
+                                    <div class="space-y-1.5 mt-1">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-semibold text-slate-500">Metode:</span>
+                                            <select class="text-xs font-bold py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" data-pm="${o.id}">
+                                                <option value="koper" ${method === 'koper' ? 'selected' : ''}>🧳 Masuk Koper</option>
+                                                <option value="kargo" ${method === 'kargo' ? 'selected' : ''}>📦 Pengiriman Kargo</option>
+                                            </select>
+                                        </div>
+
+                                        ${method === 'kargo' ? `
+                                            <div class="mt-1">
+                                                <input type="text" class="text-xs py-1 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 w-full"
+                                                       data-resi="${o.id}" value="${e(o.cargoResi || '')}" placeholder="📝 Masukkan No. Resi Kargo...">
+                                            </div>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
-                        `).join('')}
+                        `}).join('')}
                     </div>
                 `;
             });
 
             return html;
+        }
+
+        /* Fungsi Cetak / Generate PDF Packing List */
+        function exportPackingPDF() {
+            const boughtOrders = S.orders.filter(bought);
+            if (!boughtOrders.length) return toast('Belum ada barang dibeli untuk dicetak ke PDF.', 3000);
+
+            const groups = {};
+            boughtOrders.forEach(o => {
+                if (!groups[o.cid]) groups[o.cid] = [];
+                groups[o.cid].push(o);
+            });
+
+            const printWin = window.open('', '_blank');
+            let content = `
+            <!DOCTYPE html>
+            <html lang="id">
+            <head>
+                <meta charset="utf-8">
+                <title>Packing List - ${e(S.trip.name)}</title>
+                <style>
+                    body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #0f172a; line-height: 1.4; }
+                    .header { border-bottom: 2px solid #2563eb; padding-bottom: 12px; margin-bottom: 20px; }
+                    .title { font-size: 20px; font-weight: bold; margin: 0; color: #1e293b; }
+                    .meta { font-size: 12px; color: #64748b; margin-top: 4px; }
+                    .cust-block { margin-bottom: 22px; page-break-inside: avoid; }
+                    .cust-name { font-size: 14px; font-weight: bold; background: #f1f5f9; padding: 6px 10px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb; }
+                    table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+                    th { background: #f8fafc; font-weight: bold; color: #334155; }
+                    .tag { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+                    .koper { background: #e0f2fe; color: #0369a1; }
+                    .kargo { background: #fef3c7; color: #b45309; }
+                    .status-ok { color: #16a34a; font-weight: bold; }
+                    .status-wait { color: #ca8a04; font-weight: bold; }
+                    @media print {
+                        body { padding: 0; }
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title">🧳 Packing & Cargo List - ${e(S.trip.name)}</div>
+                    <div class="meta">Dicetak: ${new Date().toLocaleString('id-ID')} · Total ${boughtOrders.length} Barang Dibeli</div>
+                </div>
+            `;
+
+            Object.keys(groups).forEach(cid => {
+                const c = cust(cid);
+                const items = groups[cid];
+                content += `
+                <div class="cust-block">
+                    <div class="cust-name">Pelanggan: ${e(c.name)} ${c.wa ? ' (' + e(c.wa) + ')' : ''}</div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:30px; text-align:center;">Siap</th>
+                                <th>Nama Barang</th>
+                                <th style="width:40px; text-align:center;">Qty</th>
+                                <th style="width:110px;">Metode Packing</th>
+                                <th>No. Resi Kargo / Catatan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${items.map(o => `
+                                <tr>
+                                    <td style="text-align:center;">${o.packed ? '<span class="status-ok">✔</span>' : '<span class="status-wait">⏳</span>'}</td>
+                                    <td><b>${e(o.item)}</b><br><small style="color:#64748b;">${e(o.store || '-')}</small></td>
+                                    <td style="text-align:center;"><b>${o.qty}</b></td>
+                                    <td>
+                                        <span class="tag ${o.packMethod === 'kargo' ? 'kargo' : 'koper'}">
+                                            ${o.packMethod === 'kargo' ? '📦 Kargo' : '🧳 Koper'}
+                                        </span>
+                                    </td>
+                                    <td>${o.packMethod === 'kargo' ? (e(o.cargoResi) || '<i style="color:#94a3b8;">Belum ada resi</i>') : '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                `;
+            });
+
+            content += `
+                <script>
+                    window.onload = function() { window.print(); }
+                <\/script>
+            </body>
+            </html>
+            `;
+
+            printWin.document.write(content);
+            printWin.document.close();
         }
 
         function vC() {
@@ -875,7 +1003,7 @@
         function orderSheet(id) {
             const o = S.orders.find(x => x.id === id) || {
                 cid: S.customers[0]?.id || '', item: '', store: '', cat: CAT[0],
-                cur: S.trip.cur, amt: '', qty: 1, markup: S.trip.markup, mt: S.trip.mt || 'pct', packed: false
+                cur: S.trip.cur, amt: '', qty: 1, markup: S.trip.markup, mt: S.trip.mt || 'pct', packed: false, packMethod: 'koper', cargoResi: ''
             };
             let photo = o.photo || '';
 
@@ -1007,7 +1135,7 @@
                     Object.assign(x, d);
                     if (!x.rate || x.cur !== cur) x.rate = S.rates[cur];
                 } else {
-                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, ts: Date.now() });
+                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, packMethod: 'koper', cargoResi: '', ts: Date.now() });
                 }
 
                 S.trip.cur = cur;
@@ -1110,15 +1238,32 @@
             };
         }
 
-        // Event Listener khusus Checkbox Packing
+        // Event Listener khusus Checkbox & Metode Packing & Resi
         document.addEventListener('change', ev => {
             if (ev.target.dataset.pk) {
                 const id = ev.target.dataset.pk;
                 const o = S.orders.find(x => x.id === id);
                 if (o) {
                     o.packed = ev.target.checked;
+                    save(); render();
+                }
+            } else if (ev.target.dataset.pm) {
+                const id = ev.target.dataset.pm;
+                const o = S.orders.find(x => x.id === id);
+                if (o) {
+                    o.packMethod = ev.target.value;
+                    save(); render();
+                }
+            }
+        });
+
+        document.addEventListener('input', ev => {
+            if (ev.target.dataset.resi) {
+                const id = ev.target.dataset.resi;
+                const o = S.orders.find(x => x.id === id);
+                if (o) {
+                    o.cargoResi = ev.target.value;
                     save();
-                    render();
                 }
             }
         });
@@ -1137,6 +1282,7 @@
 
             if (t.id === 'zc') return close();
             if (t.id === 'btn-packing') { S.tab = 'p'; save(); render(); }
+            else if (t.id === 'btn-export-pdf') { exportPackingPDF(); }
             else if (d.t) { S.tab = d.t; save(); render(); }
             else if (d.f !== undefined) { S.filter = +d.f; render(); }
             else if (d.pf !== undefined) { S.packFilter = d.pf; render(); }
