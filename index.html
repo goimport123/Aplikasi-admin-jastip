@@ -1,670 +1,1239 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Catatan Jastip Online</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap">
-  
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Catatan Jastip - Jasa Titip Manager</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
+    <style>
+        :root {
+            box-sizing: border-box;
+            --bg: #f4f6f8;
+            --card: #ffffff;
+            --ink: #0f172a;
+            --mute: #64748b;
+            --line: #e2e8f0;
+            --hi: #ef4444;
+            --ok: #10b981;
+            --soft: #e0f2fe;
+            --soft-accent: #f0fdf4;
+            --sun: #f59e0b;
+            --brand: #2563eb;
+            --brand-dark: #1d4ed8;
+        }
 
-  <style>
-    :root {
-      box-sizing: border-box;
-      padding-top: env(safe-area-inset-top, 0px);
-      --bg: #f2f5f2;
-      --card: #ffffff;
-      --ink: #12302b;
-      --mute: #62766f;
-      --line: #dbe4df;
-      --hi: #e8344e;
-      --ok: #1a8a5a;
-      --soft: #e4efe9;
-      --sun: #ffd23f;
-    }
-    @media (prefers-color-scheme: dark) {
-      :root:not([data-theme="light"]) {
-        --bg: #0e1a17;
-        --card: #162824;
-        --ink: #e7f1ed;
-        --mute: #91a8a0;
-        --line: #26403a;
-        --soft: #1d332d;
-      }
-    }
-    *, *::before, *::after { box-sizing: inherit; }
-    html { height: 100%; scroll-padding-top: env(safe-area-inset-top, 0px); }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--ink);
-      font: 400 15px/1.45 'Plus Jakarta Sans', system-ui, sans-serif;
-      padding-bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-    }
-    header {
-      padding: 14px 16px 6px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-    }
-    h1 { font-size: 20px; font-weight: 800; margin: 0; letter-spacing: -.02em; }
-    h2 { font-size: 16px; font-weight: 800; margin: 20px 0 8px; }
-    .sub { color: var(--mute); font-size: 13px; }
-    button, input, select, textarea { font: inherit; color: inherit; }
-    button {
-      cursor: pointer;
-      border: 0;
-      border-radius: 12px;
-      min-height: 44px;
-      padding: 0 14px;
-      background: var(--soft);
-      font-weight: 600;
-    }
-    button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-      outline: 3px solid var(--sun);
-      outline-offset: 1px;
-    }
-    main { padding: 0 14px; max-width: 560px; margin: 0 auto; }
-    .chips { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0; scrollbar-width: none; }
-    .chip { flex: none; min-height: 36px; padding: 0 12px; border-radius: 99px; background: var(--card); border: 1px solid var(--line); }
-    .chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-    .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px 14px; margin: 10px 0; }
-    .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
-    .who { font-weight: 800; }
-    .item { font-size: 16px; font-weight: 600; }
-    .price { font-weight: 800; font-size: 17px; text-align: right; }
-    .fx { font-size: 12px; color: var(--mute); }
-    .steps { display: flex; gap: 4px; margin: 10px 0 8px; }
-    .steps button {
-      flex: 1; min-height: 30px; padding: 0; border-radius: 8px; font-size: 10px;
-      white-space: nowrap; overflow: hidden; background: var(--line); color: var(--mute);
-    }
-    .steps button.done { background: var(--soft); color: var(--ink); }
-    .steps button.cur { background: var(--ink); color: var(--bg); }
-    .acts { display: flex; gap: 8px; }
-    .go { flex: 1; background: var(--hi); color: #fff; font-weight: 800; }
-    .wa {
-      background: #25d366; color: #053b1c; display: inline-flex; align-items: center;
-      justify-content: center; min-height: 44px; padding: 0 14px; border-radius: 12px;
-      font-weight: 700; text-decoration: none;
-    }
-    .tag { display: inline-block; font-size: 12px; border-radius: 99px; padding: 2px 10px; font-weight: 600; }
-    .lunas { background: #d6f3e3; color: #0d6a42; }
-    .utang { background: #ffe3e7; color: #b3182f; }
-    .nav {
-      position: fixed; left: 0; right: 0; bottom: 0; display: flex;
-      background: var(--card); border-top: 1px solid var(--line);
-      padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); gap: 6px; z-index: 4;
-    }
-    .nav button { flex: 1; background: none; min-height: 48px; padding: 0 4px; font-size: 13px; }
-    .nav button.on { background: var(--soft); font-weight: 800; }
-    .fab {
-      position: fixed; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom, 0px));
-      background: var(--hi); color: #fff; font-weight: 800; border-radius: 99px;
-      min-height: 52px; padding: 0 20px; box-shadow: 0 4px 14px rgba(0,0,0,.25); z-index: 3;
-    }
-    .hero { background: var(--ink); color: var(--bg); border-radius: 18px; padding: 16px; margin: 10px 0; }
-    .hero b { display: block; font-size: 30px; font-weight: 800; letter-spacing: -.02em; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .grid .card { margin: 0; }
-    .grid b { display: block; font-size: 17px; }
-    .bar { height: 6px; border-radius: 99px; background: var(--line); margin-top: 6px; overflow: hidden; }
-    .bar i { display: block; height: 100%; background: var(--ok); }
-    .scrim {
-      position: fixed; inset: 0; background: rgba(0,0,0,.45);
-      display: flex; align-items: flex-end; justify-content: center; z-index: 5;
-    }
-    .sheet {
-      background: var(--bg); width: 100%; max-width: 560px; max-height: 92vh;
-      overflow-y: auto; border-radius: 20px 20px 0 0;
-      padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px));
-    }
-    label { display: block; font-size: 13px; font-weight: 600; margin: 10px 0 4px; }
-    input, select, textarea { width: 100%; min-height: 46px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); padding: 8px 12px; }
-    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .prev { background: var(--soft); border-radius: 12px; padding: 10px 12px; margin: 12px 0; font-weight: 600; }
-    .primary { width: 100%; background: var(--hi); color: #fff; font-weight: 800; min-height: 50px; margin-top: 8px; }
-    .toast {
-      position: fixed; left: 12px; right: 12px; bottom: calc(150px + env(safe-area-inset-bottom, 0px));
-      background: var(--ink); color: var(--bg); border-radius: 14px; padding: 10px 12px;
-      display: flex; gap: 10px; align-items: center; justify-content: space-between; z-index: 9; max-width: 536px; margin: auto;
-    }
-    .warn { background: #fff3c4; color: #5b4700; border-radius: 12px; padding: 10px 12px; margin: 8px 0; font-size: 13px; }
-    .empty { text-align: center; color: var(--mute); padding: 40px 10px; }
-    .thumb { width: 56px; height: 56px; border-radius: 10px; object-fit: cover; flex: none; cursor: zoom-in; border: 1px solid var(--line); }
-    .big { width: 100%; max-height: 260px; object-fit: contain; border-radius: 12px; background: var(--soft); margin-top: 6px; }
-    pre { white-space: pre-wrap; font: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
-    @media (prefers-reduced-motion: no-preference) {
-      .sheet { animation: up .18s ease-out; }
-      @keyframes up { from { transform: translateY(30px); opacity: .6; } }
-    }
-  </style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0f172a;
+                --card: #1e293b;
+                --ink: #f8fafc;
+                --mute: #94a3b8;
+                --line: #334155;
+                --soft: #1e3a8a;
+                --soft-accent: #064e3b;
+            }
+        }
+
+        *, *::before, *::after {
+            box-sizing: inherit;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--ink);
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+            padding-bottom: calc(88px + env(safe-area-inset-bottom, 0px));
+            min-height: 100vh;
+        }
+
+        button, input, select, textarea {
+            font: inherit;
+            color: inherit;
+        }
+
+        button {
+            cursor: pointer;
+            border: 0;
+            border-radius: 12px;
+            min-height: 44px;
+            padding: 0 14px;
+            background: var(--soft);
+            font-weight: 600;
+            transition: all 0.15s ease;
+        }
+
+        button:active {
+            transform: scale(0.98);
+            opacity: 0.9;
+        }
+
+        button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid var(--brand);
+            outline-offset: 1px;
+        }
+
+        main {
+            padding: 0 14px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .chips {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 8px 0;
+            scrollbar-width: none;
+        }
+        .chips::-webkit-scrollbar { display: none; }
+
+        .chip {
+            flex: none;
+            min-height: 36px;
+            padding: 0 14px;
+            border-radius: 99px;
+            background: var(--card);
+            border: 1px solid var(--line);
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .chip.on {
+            background: var(--ink);
+            color: var(--bg);
+            border-color: var(--ink);
+        }
+
+        .card {
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 14px;
+            margin: 10px 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .who { font-weight: 800; font-size: 15px; }
+        .item-title { font-size: 16px; font-weight: 700; line-height: 1.3; }
+        .price { font-weight: 800; font-size: 17px; text-align: right; color: var(--brand); }
+        .fx { font-size: 12px; color: var(--mute); }
+
+        .steps {
+            display: flex;
+            gap: 4px;
+            margin: 12px 0 10px;
+        }
+        .steps button {
+            flex: 1;
+            min-height: 28px;
+            padding: 0 2px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            background: var(--line);
+            color: var(--mute);
+        }
+        .steps button.done { background: var(--soft-accent); color: var(--ok); }
+        .steps button.cur { background: var(--ink); color: var(--bg); }
+
+        .acts { display: flex; gap: 8px; }
+        .go {
+            flex: 1;
+            background: var(--brand);
+            color: #ffffff;
+            font-weight: 700;
+        }
+        .wa {
+            background: #25d366;
+            color: #04391a;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 44px;
+            padding: 0 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            text-decoration: none;
+            gap: 6px;
+        }
+
+        .tag {
+            display: inline-block;
+            font-size: 11px;
+            border-radius: 99px;
+            padding: 2px 8px;
+            font-weight: 700;
+        }
+        .lunas { background: #d1fae5; color: #047857; }
+        .utang { background: #ffe4e6; color: #be123c; }
+
+        .nav {
+            position: fixed;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            background: var(--card);
+            border-top: 1px solid var(--line);
+            padding: 6px 12px calc(6px + env(safe-area-inset-bottom, 0px));
+            gap: 6px;
+            z-index: 10;
+        }
+        .nav button {
+            flex: 1;
+            background: none;
+            min-height: 48px;
+            padding: 0 4px;
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--mute);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+        }
+        .nav button.on {
+            background: var(--soft);
+            color: var(--brand);
+            font-weight: 800;
+            border-radius: 12px;
+        }
+
+        .fab {
+            position: fixed;
+            right: 18px;
+            bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+            background: var(--brand);
+            color: #ffffff;
+            font-weight: 800;
+            border-radius: 99px;
+            min-height: 52px;
+            padding: 0 22px;
+            box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+            z-index: 9;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            color: #ffffff;
+            border-radius: 20px;
+            padding: 18px;
+            margin: 12px 0;
+            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.25);
+        }
+        .hero b {
+            display: block;
+            font-size: 32px;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            line-height: 1.1;
+            margin: 4px 0;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .grid .card { margin: 0; }
+        .grid b { display: block; font-size: 18px; font-weight: 800; }
+
+        .bar {
+            height: 8px;
+            border-radius: 99px;
+            background: var(--line);
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .bar i { display: block; height: 100%; background: var(--brand); border-radius: 99px; }
+
+        .scrim {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.55);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            z-index: 50;
+        }
+        .sheet {
+            background: var(--bg);
+            width: 100%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            border-radius: 24px 24px 0 0;
+            padding: 20px 18px calc(24px + env(safe-area-inset-bottom, 0px));
+            box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
+        }
+
+        label {
+            display: block;
+            font-size: 13px;
+            font-weight: 700;
+            margin: 12px 0 4px;
+            color: var(--ink);
+        }
+        input, select, textarea {
+            width: 100%;
+            min-height: 48px;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            background: var(--card);
+            padding: 10px 14px;
+            color: var(--ink);
+        }
+
+        .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .prev {
+            background: var(--soft);
+            border-radius: 14px;
+            padding: 12px 14px;
+            margin: 14px 0;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .primary {
+            width: 100%;
+            background: var(--brand);
+            color: #ffffff;
+            font-weight: 800;
+            min-height: 50px;
+            margin-top: 10px;
+            border-radius: 14px;
+            font-size: 15px;
+        }
+
+        .toast {
+            position: fixed;
+            left: 16px;
+            right: 16px;
+            bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+            background: var(--ink);
+            color: var(--bg);
+            border-radius: 16px;
+            padding: 12px 16px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 60;
+            max-width: 560px;
+            margin: auto;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .warn {
+            background: #fef3c7;
+            color: #78350f;
+            border-radius: 12px;
+            padding: 10px 14px;
+            margin: 8px 0;
+            font-size: 13px;
+            font-weight: 500;
+            border: 1px solid #fde68a;
+        }
+
+        .empty {
+            text-align: center;
+            color: var(--mute);
+            padding: 50px 16px;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .thumb {
+            width: 60px;
+            height: 60px;
+            border-radius: 12px;
+            object-fit: cover;
+            flex: none;
+            cursor: pointer;
+            border: 1px solid var(--line);
+        }
+        .big {
+            width: 100%;
+            max-height: 280px;
+            object-fit: contain;
+            border-radius: 14px;
+            background: var(--soft);
+            margin-top: 8px;
+        }
+
+        pre {
+            white-space: pre-wrap;
+            font: inherit;
+            background: var(--card);
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 12px 14px;
+            font-size: 13px;
+        }
+
+        /* Packing List Styling */
+        .pack-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            border-radius: 12px;
+            background: var(--bg);
+            margin-top: 8px;
+            transition: all 0.2s ease;
+        }
+        .pack-item.packed {
+            opacity: 0.55;
+            text-decoration: line-through;
+        }
+        .pack-checkbox {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            accent-color: var(--ok);
+            cursor: pointer;
+        }
+
+        @media (prefers-reduced-motion: no-preference) {
+            .sheet { animation: sheetUp 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+            @keyframes sheetUp {
+                from { transform: translateY(100%); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+        }
+    </style>
 </head>
 <body>
-
-<header>
-  <div>
-    <h1 id="tn">Catatan Jastip</h1>
-    <div class="sub" id="ts">Loading...</div>
-  </div>
-  <button id="gear" aria-label="Atur trip">Atur</button>
-</header>
-
-<main id="m"></main>
-
-<button class="fab" id="fab">+ Pesanan</button>
-
-<nav class="nav">
-  <button data-t="q">Pesanan</button>
-  <button data-t="c">Pembeli</button>
-  <button data-t="p">Packing List</button>
-  <button data-t="d">Trip</button>
-</nav>
-
-<div id="ov"></div>
-<div id="tt"></div>
-
-<script>
-// =========================================================================
-// CONFIG FIREBASE (Ganti dengan konfigurasi dari Firebase Console Anda)
-// =========================================================================
-const firebaseConfig = {
-  apiKey: "PASTE_API_KEY_DI_SINI",
-  authDomain: "PASTE_PROJECT_ID.firebaseapp.com",
-  projectId: "PASTE_PROJECT_ID",
-  storageBucket: "PASTE_PROJECT_ID.appspot.com",
-  messagingSenderId: "PASTE_MESSAGING_SENDER_ID",
-  appId: "PASTE_APP_ID"
-};
-
-let db = null;
-if (typeof firebase !== 'undefined' && firebaseConfig.apiKey !== "PASTE_API_KEY_DI_SINI") {
-  try {
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-  } catch (err) {
-    console.error("Firebase init error:", err);
-  }
-}
-
-const CUR = { JPY: ['¥', 110], KRW: ['₩', 11.6], SGD: ['S$', 12900], THB: ['฿', 490], HKD: ['HK$', 2100], USD: ['$', 16400], MYR: ['RM', 3900], TWD: ['NT$', 520], EUR: ['€', 19200], AUD: ['A$', 10900], CNY: ['CN¥', 2300] };
-const ST = ['Dicari', 'Ketemu', 'Dibeli', 'Dibayar', 'OTW Indo', 'Done'];
-const CAT = ['Skincare', 'Makeup', 'Obat & Vitamin', 'Snack & Makanan', 'Fashion', 'Lainnya'];
-const K = 'jastip-v1';
-
-const def = () => ({
-  trip: { name: 'Trip Jepang', markup: 15, cur: 'JPY' },
-  rates: Object.fromEntries(Object.entries(CUR).map(([k, v]) => [k, v[1]])),
-  ratesAt: null,
-  customers: [],
-  orders: [],
-  packingLists: [],
-  history: [],
-  tab: 'q',
-  filter: -1
-});
-
-let S = def();
-
-try {
-  const localData = localStorage.getItem(K);
-  if (localData) S = Object.assign(def(), JSON.parse(localData));
-} catch (e) { S = def(); }
-
-const save = () => {
-  try { localStorage.setItem(K, JSON.stringify(S)); } catch (e) {}
-  if (db) {
-    db.collection('jastip').doc('appData').set(S).catch(err => console.error('Firestore save error:', err));
-  }
-};
-
-if (db) {
-  db.collection('jastip').doc('appData').onSnapshot((doc) => {
-    if (doc.exists) {
-      S = Object.assign(def(), doc.data());
-      if (!S.packingLists) S.packingLists = [];
-      try { localStorage.setItem(K, JSON.stringify(S)); } catch (e) {}
-      render();
-    }
-  });
-}
-
-const $ = s => document.querySelector(s);
-const uid = () => Math.random().toString(36).slice(2, 9);
-const e = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const idr = n => 'Rp ' + Math.round(n).toLocaleString('id-ID');
-const rb = n => n >= 1e6 ? 'Rp ' + (n / 1e6).toFixed(2).replace(/\.?0+$/, '').replace('.', ',') + ' jt' : n >= 1000 ? 'Rp ' + String(+(n / 1000).toFixed(1)).replace('.', ',') + 'rb' : idr(n);
-const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? 0 : x; };
-const sym = c => (CUR[c] || [c])[0];
-const fx = (n, c) => sym(c) + ' ' + n.toLocaleString('id-ID', { maximumFractionDigits: 2 });
-const cust = id => S.customers.find(c => c.id === id) || { name: '(dihapus)', wa: '', notes: '' };
-const cost = o => o.amt * o.qty * o.rate;
-const mk = o => o.mt === 'idr' ? o.markup * o.qty : cost(o) * o.markup / 100;
-const sell = o => Math.ceil((cost(o) + mk(o)) / 500) * 500;
-const paidOf = o => o.paidAmt || 0;
-const sisa = o => Math.max(0, sell(o) - paidOf(o));
-const bought = o => o.status >= 2;
-
-if (!S.packingLists) S.packingLists = [];
-
-const waNum = n => { n = String(n).replace(/\D/g, ''); return n.startsWith('0') ? '62' + n.slice(1) : n.startsWith('8') ? '62' + n : n; };
-const waLink = (w, t) => 'https://wa.me/' + waNum(w) + '?text=' + encodeURIComponent(t);
-
-function msg(o, st) {
-  const n = cust(o.cid).name, p = rb(sell(o)), i = o.item + (o.qty > 1 ? ' x' + o.qty : '');
-  return [
-    `Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
-    `Halo ${n}, ${i} ketemu${o.store ? ' di ' + o.store : ''}! Harganya ${p}, konfirmasi ya?`,
-    `Halo ${n}, ${i} sudah kubeli ✅ Total ${p}. Kalau belum transfer, ditunggu ya 🙏`,
-    `Makasih ${n}! Pembayaran ${p} untuk ${i} sudah kuterima 💚`,
-    `Halo ${n}, ${i} sudah OTW Indo ✈ Nanti kukabarin lagi kalau sudah sampai ya!`,
-    `Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, makasih banyak! 💚`
-  ][st];
-}
-
-function toast(html, ms = 5000) {
-  const t = $('#tt');
-  t.innerHTML = '<div class="toast">' + html + '</div>';
-  clearTimeout(toast.h);
-  toast.h = setTimeout(() => t.innerHTML = '', ms);
-}
-
-function sheet(html) {
-  $('#ov').innerHTML = '<div class="scrim" id="sc"><div class="sheet" role="dialog">' + html + '</div></div>';
-  $('#sc').onclick = ev => { if (ev.target.id === 'sc') close(); };
-}
-const close = () => { $('#ov').innerHTML = ''; };
-
-function reqStatus(id, i) {
-  const o = S.orders.find(x => x.id === id);
-  if (i === 3 && sisa(o) > 0) paySheet(id);
-  else setStatus(id, i);
-}
-
-function setStatus(id, i) {
-  const o = S.orders.find(x => x.id === id);
-  o.status = i;
-  save(); render();
-  toast(`<span>${ST[i]} ✔ ${e(cust(o.cid).name)}${i === 5 && sisa(o) > 0 ? ' · sisa ' + rb(sisa(o)) : ''}</span>` +
-    (cust(o.cid).wa ? `<a class="wa" target="_blank" rel="noopener" href="${waLink(cust(o.cid).wa, msg(o, i))}">Kabari WA</a>` : ''));
-}
-
-function stat(list) {
-  const b = list.filter(bought), rev = b.reduce((s, o) => s + sell(o), 0), c = b.reduce((s, o) => s + cost(o), 0);
-  const paid = list.reduce((s, o) => s + paidOf(o), 0);
-  return { n: list.length, nb: b.length, rev, c, m: rev - c, paid, out: b.reduce((s, o) => s + sisa(o), 0), wait: list.filter(o => !bought(o)).reduce((s, o) => s + sell(o), 0) };
-}
-
-function render() {
-  $('#tn').textContent = S.trip.name;
-  const s = stat(S.orders);
-  $('#ts').textContent = S.orders.length + ' pesanan · untung ' + rb(s.m);
-  
-  document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab));
-  $('#fab').style.display = (S.tab === 'c' || S.tab === 'p') ? 'none' : '';
-  
-  $('#m').innerHTML = S.tab === 'q' ? vQ() : S.tab === 'c' ? vC() : S.tab === 'p' ? vP() : vD();
-}
-
-function vQ() {
-  const cn = i => S.orders.filter(o => i < 0 || o.status === i).length;
-  let h = '<div class="chips">' + [-1, 0, 1, 2, 3, 4, 5].map(i => `<button class="chip ${S.filter === i ? 'on' : ''}" data-f="${i}">${i < 0 ? 'Semua' : ST[i]} ${cn(i)}</button>`).join('') + '</div>';
-  const L = S.orders.filter(o => S.filter < 0 || o.status === S.filter).sort((a, b) => b.ts - a.ts);
-  
-  if (!L.length) return h + `<div class="empty">${S.orders.length ? 'Nggak ada pesanan di tahap ini.' : 'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> untuk menambahkan!'}</div>`;
-  
-  return h + L.map(o => {
-    const c = cust(o.cid), nx = o.status < 5 ? ST[o.status + 1] : null;
-    return `<div class="card">
-      <div class="row">
-        ${o.photo ? `<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto">` : ''}
-        <div style="flex:1">
-          <div class="who">${e(c.name)}</div>
-          <div class="item">${e(o.item)}${o.qty > 1 ? ' ×' + o.qty : ''}</div>
-          <div class="fx">${e(o.store || 'Toko ?')} · ${fx(o.amt, o.cur)}${o.qty > 1 ? '/pcs' : ''}</div>
-        </div>
+    <header class="max-w-[600px] mx-auto pt-4 px-4 pb-2 flex justify-between items-center gap-2">
         <div>
-          <div class="price">${idr(sell(o))}</div>
-          <div style="text-align:right">
-            ${bought(o) || paidOf(o) > 0 ? `<button class="tag ${sisa(o) <= 0 ? 'lunas' : 'utang'}" data-pay="${o.id}">${sisa(o) <= 0 ? 'Lunas' : 'Sisa ' + rb(sisa(o))}</button>` : ''}
-          </div>
+            <h1 id="tn" class="text-xl font-extrabold tracking-tight">Catatan Jastip</h1>
+            <div class="sub text-xs font-medium text-slate-500 dark:text-slate-400" id="ts">Loading data...</div>
         </div>
-      </div>
-      <div class="steps">${ST.map((t, i) => `<button data-s="${o.id}:${i}" class="${i < o.status ? 'done' : i === o.status ? 'cur' : ''}">${t}</button>`).join('')}</div>
-      <div class="acts">
-        ${nx ? `<button class="go" data-s="${o.id}:${o.status + 1}">${nx} ›</button>` : '<button class="go" style="background:var(--ok)" disabled>Selesai 🎉</button>'}
-        ${c.wa ? `<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa, msg(o, o.status))}">WA</a>` : ''}
-        <button data-eo="${o.id}">⋯</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-function vC() {
-  const add = '<button class="primary" data-ec="">+ Pelanggan Baru</button>';
-  if (!S.customers.length) return add + '<div class="empty">Belum ada data pelanggan.</div>';
-  return add + S.customers.map(c => {
-    const os = S.orders.filter(o => o.cid === c.id), t = stat(os);
-    return `<div class="card">
-      <div class="row">
-        <div><div class="who">${e(c.name)}</div><div class="fx">${e(c.wa || 'Belum ada WA')}</div></div>
-        <div style="text-align:right">
-          <div class="fx">${os.length} pesanan</div>
-          ${t.out > 0 ? `<span class="tag utang">Kurang ${rb(t.out)}</span>` : os.length ? '<span class="tag lunas">Lunas</span>' : ''}
+        <div class="flex gap-2">
+            <!-- Tombol Packing List Atas -->
+            <button id="btn-packing" class="bg-emerald-600 text-white font-bold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow-sm hover:bg-emerald-700">
+                <span>🧳</span> <span>Packing</span>
+            </button>
+            <button id="gear" class="bg-slate-200 dark:bg-slate-700 font-bold text-xs px-3 py-2 rounded-xl" aria-label="Atur trip">Atur Trip</button>
         </div>
-      </div>
-      ${c.notes ? `<div style="margin-top:6px;font-size:13px">${e(c.notes)}</div>` : ''}
-      <div class="acts" style="margin-top:10px">
-        <button data-ec="${c.id}" style="flex:1">Edit</button>
-        ${c.wa && t.out > 0 ? `<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa, tagih(c))}">Tagih WA</a>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-}
+    </header>
 
-function vP() {
-  const add = '<button class="primary" data-epl="">+ Resi Kargo Baru</button>';
-  if (!S.packingLists || !S.packingLists.length) {
-    return add + '<div class="empty">Belum ada Packing List Kargo.<br>Buat grup resi untuk melacak box / pengiriman kargo.</div>';
-  }
-  return add + S.packingLists.map(pl => {
-    const os = S.orders.filter(o => (pl.orderIds || []).includes(o.id));
-    const custMap = {};
-    os.forEach(o => {
-      if (!custMap[o.cid]) custMap[o.cid] = [];
-      custMap[o.cid].push(o);
-    });
-    
-    let itemsHtml = '';
-    const cids = Object.keys(custMap);
-    if (!cids.length) {
-      itemsHtml = '<div class="sub" style="margin:8px 0;">Belum ada pesanan dimasukkan ke resi ini.</div>';
-    } else {
-      itemsHtml = cids.map(cid => {
-        const c = cust(cid);
-        return `<div style="background:var(--soft);border-radius:10px;padding:8px 10px;margin:6px 0;">
-          <div class="who" style="font-size:13px;">👤 ${e(c.name)}</div>
-          <div class="sub" style="font-size:12px;margin-top:2px;">
-            ${custMap[cid].map(o => '• ' + e(o.item) + (o.qty > 1 ? ' x' + o.qty : '')).join('<br>')}
-          </div>
-        </div>`;
-      }).join('');
-    }
+    <main id="m"></main>
 
-    const totalPcs = os.reduce((s, o) => s + (o.qty || 1), 0);
+    <button class="fab" id="fab">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+        <span>Pesanan</span>
+    </button>
 
-    return `<div class="card">
-      <div class="row">
-        <div>
-          <div class="who" style="font-size:17px;">📦 Resi: ${e(pl.resi)}</div>
-          <div class="fx">${e(pl.note || 'Kargo')} · ${os.length} pesanan (${totalPcs} pcs)</div>
-        </div>
-        <div><span class="tag lunas">${e(pl.status || 'OTW Indo')}</span></div>
-      </div>
-      <div style="margin-top:8px">${itemsHtml}</div>
-      <div class="acts" style="margin-top:10px">
-        <button data-epl="${pl.id}" style="flex:1">Kelola / Ubah</button>
-        <a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(plSummary(pl))}">Share WA</a>
-      </div>
-    </div>`;
-  }).join('');
-}
+    <nav class="nav">
+        <button data-t="q">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+            <span>Pesanan</span>
+        </button>
+        <button data-t="p">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+            <span>Packing</span>
+        </button>
+        <button data-t="c">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            <span>Pelanggan</span>
+        </button>
+        <button data-t="d">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+            <span>Dashboard</span>
+        </button>
+    </nav>
 
-function plSummary(pl) {
-  const os = S.orders.filter(o => (pl.orderIds || []).includes(o.id));
-  const custMap = {};
-  os.forEach(o => {
-    if (!custMap[o.cid]) custMap[o.cid] = [];
-    custMap[o.cid].push(o);
-  });
-  let txt = `📦 PACKING LIST KARGO\nResi: ${pl.resi}\nKet: ${pl.note || '-'}\nStatus: ${pl.status || 'OTW Indo'}\n-------------------------\n`;
-  Object.keys(custMap).forEach(cid => {
-    txt += `👤 ${cust(cid).name}:\n`;
-    custMap[cid].forEach(o => { txt += `  - ${o.item} (x${o.qty})\n`; });
-  });
-  return txt;
-}
+    <div id="ov"></div>
+    <div id="tt"></div>
 
-function tagih(c) {
-  const os = S.orders.filter(o => o.cid === c.id && bought(o) && sisa(o) > 0);
-  return `Halo ${c.name}, rincian tagihan jastip yang belum dibayar:\n` +
-    os.map(o => '• ' + o.item + ': ' + rb(sisa(o))).join('\n') +
-    `\nTotal: ${idr(os.reduce((x, o) => x + sisa(o), 0))}. Terima kasih! 🙏`;
-}
+    <script>
+        const CUR = {
+            JPY: ['¥', 110], KRW: ['₩', 11.6], SGD: ['S$', 12900], THB: ['฿', 490],
+            HKD: ['HK$', 2100], USD: ['$', 16400], MYR: ['RM', 3900], TWD: ['NT$', 520],
+            EUR: ['€', 19200], AUD: ['A$', 10900], CNY: ['CN¥', 2300]
+        };
+        const ST = ['Dicari', 'Ketemu', 'Dibeli', 'Dibayar', 'OTW Indo', 'Done'];
+        const CAT = ['Skincare', 'Makeup', 'Obat & Vitamin', 'Snack & Makanan', 'Fashion', 'Lainnya'];
+        const K = 'jastip-v2';
 
-function paySheet(id) {
-  const o = S.orders.find(x => x.id === id), c = cust(o.cid), p = paidOf(o), r = sisa(o);
-  sheet(`<h1>Pembayaran</h1><div class="sub">${e(c.name)} · ${e(o.item)}</div>
-  <div class="prev">Total ${idr(sell(o))}<br>Sudah dibayar ${idr(p)}<br><b>Sisa ${idr(r)}</b></div>
-  ${r > 0 ? `<button class="primary" id="pf">Bayar Penuh (${idr(r)})</button>
-  <label>Atau Bayar Sebagian (Rp)</label><input id="pn" inputmode="numeric" placeholder="100000">
-  <button class="primary" id="pp" style="background:var(--ink);color:var(--bg)">Catat Sebagian</button>` : '<div class="prev">Sudah lunas 🎉</div>'}
-  ${p > 0 ? '<button style="width:100%;margin-top:10px;color:var(--hi)" id="pz">Reset Pembayaran</button>' : ''}`);
+        const def = () => ({
+            trip: { name: 'Trip Japan / Bangkok 2026', markup: 15, cur: 'JPY', mt: 'pct' },
+            rates: Object.fromEntries(Object.entries(CUR).map(([k, v]) => [k, v[1]])),
+            ratesAt: null,
+            customers: [],
+            orders: [],
+            history: [],
+            tab: 'q',
+            filter: -1,
+            searchQuery: '',
+            packFilter: 'all' // 'all', 'unpacked', 'packed'
+        });
 
-  const apply = a => {
-    const x = Math.min(a, r);
-    o.paidAmt = p + x;
-    if (sisa(o) <= 0 && o.status < 3) o.status = 3;
-    save(); close(); render();
-    toast(`<span>${sisa(o) > 0 ? 'Tercatat sebagian · sisa ' + rb(sisa(o)) : 'Lunas ✔'}</span>`);
-  };
+        let S;
+        try {
+            S = Object.assign(def(), JSON.parse(localStorage.getItem(K) || '{}'));
+        } catch (e) {
+            S = def();
+        }
 
-  if (r > 0) {
-    $('#pf').onclick = () => apply(r);
-    $('#pp').onclick = () => {
-      const a = Math.round(num(String($('#pn').value).replace(/\./g, '')));
-      if (a <= 0) return toast('Isi nominal terlebih dahulu', 2500);
-      apply(a);
-    };
-  }
-  if (p > 0) $('#pz').onclick = () => { o.paidAmt = 0; save(); close(); render(); };
-}
+        const save = () => {
+            try {
+                localStorage.setItem(K, JSON.stringify(S));
+            } catch (e) {
+                toast('Memori browser penuh, foto atau cadangan belum tersimpan seluruhnya.', 8000);
+            }
+        };
 
-function summary() {
-  const s = stat(S.orders);
-  return `✈️ Rekap ${S.trip.name}\nPesanan: ${s.nb}/${s.n}\nOmzet: ${idr(s.rev)}\nModal: ${idr(s.c)}\nUntung: ${idr(s.m)}\nTerbayar: ${idr(s.paid)}\nBelum Dibayar: ${idr(s.out)}`;
-}
+        const $ = s => document.querySelector(s);
+        const uid = () => Math.random().toString(36).slice(2, 9);
+        const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const idr = n => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+        const rb = n => n >= 1e6 ? 'Rp ' + (n / 1e6).toFixed(2).replace(/\.?0+$/, '').replace('.', ',') + ' jt' : n >= 1000 ? 'Rp ' + String(+(n / 1000).toFixed(1)).replace('.', ',') + 'rb' : idr(n);
+        const num = v => { const x = parseFloat(String(v).replace(',', '.')); return isNaN(x) ? 0 : x; };
+        const sym = c => (CUR[c] || [c])[0];
+        const fx = (n, c) => sym(c) + ' ' + (n || 0).toLocaleString('id-ID', { maximumFractionDigits: 2 });
+        const cust = id => S.customers.find(c => c.id === id) || { name: '(dihapus)', wa: '', notes: '' };
 
-function vD() {
-  const s = stat(S.orders);
-  const used = [...new Set(S.orders.map(o => o.cur).concat(S.trip.cur))];
-  return `<div class="hero">
-    <span class="sub" style="color:inherit;opacity:.75">Estimasi Untung Bersih</span>
-    <b>${idr(s.m)}</b>
-    <span style="opacity:.8">Omzet ${idr(s.rev)} − Modal ${idr(s.c)}</span>
-  </div>
-  <div class="grid">
-    <div class="card"><span class="fx">Total Pesanan</span><b>${s.n} (${s.nb} dibeli)</b></div>
-    <div class="card"><span class="fx">Uang Masuk</span><b>${idr(s.paid)}</b></div>
-    <div class="card"><span class="fx">Sisa Piutang</span><b style="color:var(--hi)">${idr(s.out)}</b></div>
-    <div class="card"><span class="fx">Belum Dibeli</span><b>${idr(s.wait)}</b></div>
-  </div>
-  <h2>Pengaturan Kurs (Rp)</h2>
-  <div class="card">
-    ${used.map(c => `<label>${c}</label><input inputmode="decimal" data-r="${c}" value="${S.rates[c] ?? ''}">`).join('')}
-  </div>
-  <h2>Ringkasan Trip</h2>
-  <pre>${e(summary())}</pre>
-  <div class="acts">
-    <button id="bak" style="flex:1">Download Backup JSON</button>
-  </div>`;
-}
+        const cost = o => (o.amt || 0) * (o.qty || 1) * (o.rate || S.rates[o.cur] || 1);
+        const mk = o => o.mt === 'idr' ? (o.markup || 0) * (o.qty || 1) : cost(o) * (o.markup || 0) / 100;
+        const sell = o => Math.ceil((cost(o) + mk(o)) / 500) * 500;
+        const paidOf = o => o.paidAmt || 0;
+        const sisa = o => Math.max(0, sell(o) - paidOf(o));
+        const mkl = o => o.mt === 'idr' ? '+' + idr(o.markup) + '/pcs' : '+' + o.markup + '%';
+        const bought = o => o.status >= 2;
 
-function plSheet(id) {
-  const pl = (S.packingLists || []).find(x => x.id === id) || { resi: '', note: '', status: 'OTW Indo', orderIds: [] };
-  const eligibleOrders = S.orders;
+        const waNum = n => {
+            n = String(n || '').replace(/\D/g, '');
+            return n.startsWith('0') ? '62' + n.slice(1) : n.startsWith('8') ? '62' + n : n;
+        };
+        const waLink = (w, t) => 'https://wa.me/' + waNum(w) + '?text=' + encodeURIComponent(t);
 
-  let ordersHtml = eligibleOrders.length ? eligibleOrders.map(o => {
-    const c = cust(o.cid);
-    const checked = (pl.orderIds || []).includes(o.id) ? 'checked' : '';
-    return `<label style="display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:4px 0;cursor:pointer;">
-      <input type="checkbox" class="pl-chk" value="${o.id}" ${checked} style="width:20px;min-height:20px;margin:0;">
-      <div style="flex:1">
-        <div style="font-weight:700;font-size:14px;">${e(o.item)} (x${o.qty})</div>
-        <div class="fx">${e(c.name)} · ${ST[o.status]}</div>
-      </div>
-    </label>`;
-  }).join('') : '<div class="sub">Belum ada pesanan.</div>';
+        function msg(o, st) {
+            const n = cust(o.cid).name, p = rb(sell(o)), i = o.item + (o.qty > 1 ? ' x' + o.qty : '');
+            return [
+                `Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
+                `Halo ${n}, ${i} ketemu${o.store ? ' di ' + o.store : ''}! Harganya ${p}, konfirmasi ya?`,
+                `Halo ${n}, ${i} sudah kubeli ✅ Total ${p}. Kalau belum transfer, ditunggu ya 🙏`,
+                `Makasih ${n}! Pembayaran ${p} untuk ${i} sudah kuterima 💚`,
+                `Halo ${n}, ${i} sudah OTW Indo ✈️ Nanti kukabarin lagi kalau sudah sampai ya!`,
+                `Halo ${n}, ${i} sudah dikirim/siap diambil ya 📦 Makasih banyak! 💚`
+            ][st];
+        }
 
-  sheet(`<h1>${id ? 'Ubah Packing List' : 'Resi Kargo Baru'}</h1>
-  <label>Nomor Resi / Kode Kargo</label>
-  <input id="pl-r" value="${e(pl.resi)}" placeholder="mis. JP-KG-88910">
-  <label>Keterangan / Ekspedisi</label>
-  <input id="pl-n" value="${e(pl.note)}" placeholder="mis. Box 1 - Air Cargo">
-  <label>Status Kargo</label>
-  <select id="pl-s">
-    <option ${pl.status === 'Di Warehouse Origin' ? 'selected' : ''}>Di Warehouse Origin</option>
-    <option ${pl.status === 'OTW Indo' ? 'selected' : ''}>OTW Indo</option>
-    <option ${pl.status === 'Proses Bea Cukai' ? 'selected' : ''}>Proses Bea Cukai</option>
-    <option ${pl.status === 'Sampai di Indo' ? 'selected' : ''}>Sampai di Indo</option>
-    <option ${pl.status === 'Selesai Unboxing' ? 'selected' : ''}>Selesai Unboxing</option>
-  </select>
-  <label>Pilih Pesanan Masuk Box/Resi Ini</label>
-  <div style="max-height:200px;overflow-y:auto;">${ordersHtml}</div>
-  <button class="primary" id="pl-ok">Simpan Packing List</button>
-  ${id ? '<button style="width:100%;margin-top:8px;color:var(--hi)" id="pl-del">Hapus</button>' : ''}`);
+        const payMsg = (o, a) => `Makasih ${cust(o.cid).name}! Pembayaran ${idr(a)} untuk ${o.item} sudah kuterima 💚 ` + (sisa(o) > 0 ? 'Sisa ' + idr(sisa(o)) + ' ya.' : 'Sudah lunas ✅');
 
-  $('#pl-ok').onclick = () => {
-    const resi = $('#pl-r').value.trim();
-    if (!resi) return toast('Nomor resi wajib diisi', 2500);
-    const selectedOrderIds = Array.from(document.querySelectorAll('.pl-chk:checked')).map(cb => cb.value);
-    const d = { resi, note: $('#pl-n').value.trim(), status: $('#pl-s').value, orderIds: selectedOrderIds };
+        function toast(html, ms = 6000) {
+            const t = $('#tt');
+            t.innerHTML = '<div class="toast"><span>' + html + '</span></div>';
+            clearTimeout(toast.h);
+            toast.h = setTimeout(() => t.innerHTML = '', ms);
+        }
 
-    if (id) { Object.assign(pl, d); }
-    else { S.packingLists.push({ id: uid(), ...d }); }
+        function sheet(html) {
+            $('#ov').innerHTML = '<div class="scrim" id="sc"><div class="sheet" role="dialog">' + html + '</div></div>';
+            $('#sc').onclick = ev => { if (ev.target.id === 'sc') close(); };
+        }
+        const close = () => { $('#ov').innerHTML = ''; };
 
-    save(); close(); render();
-    toast('Packing List tersimpan ✔', 2500);
-  };
+        function reqStatus(id, i) {
+            const o = S.orders.find(x => x.id === id);
+            if (i === 3 && sisa(o) > 0) paySheet(id);
+            else setStatus(id, i);
+        }
 
-  if (id) {
-    $('#pl-del').onclick = () => {
-      S.packingLists = S.packingLists.filter(x => x.id !== id);
-      save(); close(); render();
-    };
-  }
-}
+        function setStatus(id, i) {
+            const o = S.orders.find(x => x.id === id);
+            o.status = i;
+            save();
+            render();
+            const c = cust(o.cid);
+            toast(`<span>${ST[i]} ✔ ${e(c.name)}${i === 5 && sisa(o) > 0 ? ' · sisa ' + rb(sisa(o)) : ''}</span>` + (c.wa ? `<a class="wa text-xs py-1 px-3 min-h-[32px] ml-2" target="_blank" rel="noopener" href="${waLink(c.wa, msg(o, i))}">Kabari WA</a>` : ''));
+        }
 
-function orderSheet(id) {
-  const o = S.orders.find(x => x.id === id) || { cid: S.customers[0]?.id || '', item: '', store: '', cat: CAT[0], cur: S.trip.cur, amt: '', qty: 1, markup: S.trip.markup, mt: 'pct' };
-  let photo = o.photo || '';
-  
-  sheet(`<h1>${id ? 'Ubah Pesanan' : 'Pesanan Baru'}</h1>
-  <label>Pelanggan</label>
-  <select id="f-c">${S.customers.map(c => `<option value="${c.id}" ${c.id === o.cid ? 'selected' : ''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
-  <div id="nc" hidden><label>Nama Baru</label><input id="f-nn"><label>Nomor WA</label><input id="f-nw"></div>
-  <label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="Hada Labo Lotion">
-  <label>Toko</label><input id="f-s" value="${e(o.store)}" placeholder="Don Quijote">
-  <div class="two">
-    <div><label>Mata Uang</label><select id="f-u">${Object.keys(S.rates).map(c => `<option ${c === o.cur ? 'selected' : ''}>${c}</option>`).join('')}</select></div>
-    <div><label>Harga per pcs</label><input id="f-a" inputmode="decimal" value="${o.amt}"></div>
-  </div>
-  <div class="two">
-    <div><label>Jumlah (Qty)</label><input id="f-q" inputmode="numeric" value="${o.qty}"></div>
-    <div><label>Markup (%)</label><input id="f-m" inputmode="decimal" value="${o.markup}"></div>
-  </div>
-  <div class="prev" id="pv"></div>
-  <button class="primary" id="f-ok">Simpan Pesanan</button>
-  ${id ? '<button style="width:100%;margin-top:8px;color:var(--hi)" id="del">Hapus</button>' : ''}`);
+        function stat(list) {
+            const b = list.filter(bought);
+            const rev = b.reduce((s, o) => s + sell(o), 0);
+            const c = b.reduce((s, o) => s + cost(o), 0);
+            const paid = list.reduce((s, o) => s + paidOf(o), 0);
+            return {
+                n: list.length,
+                nb: b.length,
+                rev,
+                c,
+                m: rev - c,
+                paid,
+                out: b.reduce((s, o) => s + sisa(o), 0),
+                wait: list.filter(o => !bought(o)).reduce((s, o) => s + sell(o), 0)
+            };
+        }
 
-  const pv = () => {
-    const cur = $('#f-u').value, r = S.rates[cur] \vert{}\vert{} 0, a = num($('#f-a').value) * Math.max(1, num($('#f-q').value)) * r, m = num($('#f-m').value), p = Math.ceil((a + (a * m / 100)) / 500) * 500;
-    $('#pv').innerHTML = a ? `Modal ≈ ${idr(a)}<br>Harga Jual ${idr(p)} <span class="fx">(Untung ${idr(p - a)})</span>` : 'Isi harga untuk menghitung estimasi jual.';
-  };
-  ['f-u', 'f-a', 'f-q', 'f-m'].forEach(i => $('#' + i).oninput = pv); pv();
+        function render() {
+            $('#tn').textContent = S.trip.name;
+            const s = stat(S.orders);
+            $('#ts').textContent = S.orders.length + ' pesanan · Untung bersih ' + rb(s.m);
 
-  $('#f-c').onchange = () => { $('#nc').hidden = $('#f-c').value !== '+'; };
-  
-  $('#f-ok').onclick = () => {
-    let cid = $('#f-c').value;
-    if (cid === '+') {
-      const n = $('#f-nn').value.trim();
-      if (!n) return toast('Nama pelanggan wajib diisi', 2500);
-      cid = uid();
-      S.customers.push({ id: cid, name: n, wa: $('#f-nw').value.trim(), notes: '' });
-    }
-    if (!cid) return toast('Pilih pelanggan terlebih dahulu', 2500);
-    const item = $('#f-i').value.trim(), amt = num($('#f-a').value);
-    if (!item || !amt) return toast('Nama barang & harga wajib diisi', 2500);
-    
-    const cur = $('#f-u').value;
-    const d = { cid, item, store: $('#f-s').value.trim(), cat: CAT[0], cur, amt, qty: Math.max(1, Math.round(num($('#f-q').value)) \vert{}\vert{} 1), markup: num($('#f-m').value), mt: 'pct', photo };
+            document.querySelectorAll('.nav button').forEach(b => b.classList.toggle('on', b.dataset.t === S.tab));
+            $('#fab').style.display = S.tab === 'c' ? 'none' : 'flex';
 
-    if (id) { Object.assign(S.orders.find(z => z.id === id), d); }
-    else { S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, ts: Date.now() }); }
+            $('#m').innerHTML = S.tab === 'q' ? vQ() : S.tab === 'p' ? vP() : S.tab === 'c' ? vC() : vD();
+        }
 
-    save(); close(); render();
-    toast('Pesanan dicatat ✔', 2500);
-  };
+        function vQ() {
+            const cn = i => S.orders.filter(o => i < 0 || o.status === i).length;
+            let h = '<div class="chips">' + [-1, 0, 1, 2, 3, 4, 5].map(i => `<button class="chip ${S.filter === i ? 'on' : ''}" data-f="${i}">${i < 0 ? 'Semua' : ST[i]} (${cn(i)})</button>`).join('') + '</div>';
 
-  if (id) {
-    $('#del').onclick = () => {
-      S.orders = S.orders.filter(x => x.id !== id);
-      save(); close(); render();
-    };
-  }
-}
+            h += `<div class="mt-2 mb-3"><input type="text" id="q-search" placeholder="🔍 Cari barang, toko, atau pelanggan..." value="${e(S.searchQuery || '')}" class="text-sm"></div>`;
 
-function custSheet(id) {
-  const c = S.customers.find(x => x.id === id) || { name: '', wa: '', notes: '' };
-  sheet(`<h1>${id ? 'Ubah Pelanggan' : 'Pelanggan Baru'}</h1>
-  <label>Nama</label><input id="c-n" value="${e(c.name)}">
-  <label>WhatsApp</label><input id="c-w" inputmode="tel" value="${e(c.wa)}">
-  <label>Catatan</label><textarea id="c-t">${e(c.notes)}</textarea>
-  <button class="primary" id="c-ok">Simpan</button>`);
+            let L = S.orders.filter(o => S.filter < 0 || o.status === S.filter);
+            if (S.searchQuery) {
+                const q = S.searchQuery.toLowerCase();
+                L = L.filter(o => o.item.toLowerCase().includes(q) || (o.store && o.store.toLowerCase().includes(q)) || cust(o.cid).name.toLowerCase().includes(q));
+            }
+            L.sort((a, b) => b.ts - a.ts);
 
-  $('#c-ok').onclick = () => {
-    const n = $('#c-n').value.trim();
-    if (!n) return toast('Nama wajib diisi', 2500);
-    const d = { name: n, wa: $('#c-w').value.trim(), notes: $('#c-t').value.trim() };
-    if (id) Object.assign(c, d); else S.customers.push({ id: uid(), ...d });
-    save(); close(); render();
-  };
-}
+            if (!L.length) {
+                return h + `<div class="empty">${S.orders.length ? 'Nggak ada pesanan dengan kriteria ini.' : 'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> untuk mencatat titipan baru!'}</div>`;
+            }
 
-function tripSheet() {
-  sheet(`<h1>Atur Trip</h1>
-  <label>Nama Trip</label><input id="t-n" value="${e(S.trip.name)}">
-  <label>Markup Standar (%)</label><input id="t-m" inputmode="decimal" value="${S.trip.markup}">
-  <button class="primary" id="t-ok">Simpan</button>`);
+            return h + L.map(o => {
+                const c = cust(o.cid), nx = o.status < 5 ? ST[o.status + 1] : null;
+                return `<div class="card">
+                    <div class="row">
+                        ${o.photo ? `<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">` : ''}
+                        <div style="flex:1">
+                            <div class="who">${e(c.name)}</div>
+                            <div class="item-title">${e(o.item)}${o.qty > 1 ? ' ×' + o.qty : ''}</div>
+                            <div class="fx">${e(o.store || 'Toko tak dicatat')} · ${fx(o.amt, o.cur)}${o.qty > 1 ? ' /pcs' : ''} · ${mkl(o)}</div>
+                        </div>
+                        <div>
+                            <div class="price">${idr(sell(o))}</div>
+                            <div style="text-align:right" class="mt-1">
+                                ${bought(o) || paidOf(o) > 0 ? `<button class="tag ${sisa(o) <= 0 ? 'lunas' : 'utang'}" data-pay="${o.id}">${sisa(o) <= 0 ? 'Lunas' : paidOf(o) > 0 ? 'Sebagian · sisa ' + rb(sisa(o)) : 'Belum bayar'}</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="steps">${ST.map((t, i) => `<button data-s="${o.id}:${i}" class="${i < o.status ? 'done' : i === o.status ? 'cur' : ''}">${t}</button>`).join('')}</div>
+                    <div class="acts">
+                        ${nx ? `<button class="go" data-s="${o.id}:${o.status + 1}">${nx} ›</button>` : '<button class="go" style="background:var(--ok)" disabled>Selesai 🎉</button>'}
+                        ${c.wa ? `<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa, msg(o, o.status))}">WA</a>` : ''}
+                        <button data-eo="${o.id}" aria-label="Ubah" class="px-3">⋯</button>
+                    </div>
+                </div>`;
+            }).join('');
+        }
 
-  $('#t-ok').onclick = () => {
-    S.trip.name = $('#t-n').value.trim() || 'Trip Baru';
-    S.trip.markup = num($('#t-m').value);
-    save(); close(); render();
-  };
-}
+        /* FITUR PACKING LIST (DITAMPILKAN DIBAGIAN ATAS / DEDICATED VIEW) */
+        function vP() {
+            // Hanya barang yang sudah Dibeli (status >= 2)
+            const boughtOrders = S.orders.filter(bought);
+            const total = boughtOrders.length;
+            const packedCount = boughtOrders.filter(o => o.packed).length;
+            const pct = total ? Math.round((packedCount / total) * 100) : 0;
 
-document.addEventListener('click', ev => {
-  const t = ev.target.closest('button');
-  if (!t) return;
-  const d = t.dataset;
-  if (d.t) { S.tab = d.t; save(); render(); }
-  else if (d.f) { S.filter = +d.f; render(); }
-  else if (d.s) { const [i, n] = d.s.split(':'); reqStatus(i, +n); }
-  else if (d.pay) paySheet(d.pay);
-  else if (d.eo) orderSheet(d.eo);
-  else if (d.ec !== undefined) custSheet(d.ec);
-  else if (d.epl !== undefined) plSheet(d.epl);
-  else if (t.id === 'fab') orderSheet();
-  else if (t.id === 'gear') tripSheet();
-  else if (t.id === 'bak') {
-    const blob = new Blob([JSON.stringify(S, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'jastip-backup.json'; a.click();
-    URL.revokeObjectURL(url);
-  }
-});
+            let filterMode = S.packFilter || 'all';
+            let filtered = boughtOrders;
+            if (filterMode === 'unpacked') filtered = boughtOrders.filter(o => !o.packed);
+            else if (filterMode === 'packed') filtered = boughtOrders.filter(o => o.packed);
 
-document.addEventListener('input', ev => {
-  const c = ev.target.dataset.r;
-  if (c) { S.rates[c] = num(ev.target.value); save(); }
-});
+            // Grouping berdasarkan Pelanggan
+            const groups = {};
+            filtered.forEach(o => {
+                if (!groups[o.cid]) groups[o.cid] = [];
+                groups[o.cid].push(o);
+            });
 
-render();
-</script>
+            let html = `
+                <div class="hero mb-4">
+                    <span class="sub" style="color:inherit;opacity:.8">🧳 Checklist Packing Koper & Dus</span>
+                    <b>${packedCount} / ${total} Barang</b>
+                    <div class="bar mt-2"><i style="width:${pct}%; background:var(--ok)"></i></div>
+                    <span class="text-xs opacity-90 mt-2 block">${pct}% barang dibeli telah siap dipacking</span>
+                </div>
+
+                <div class="chips mb-3">
+                    <button class="chip ${filterMode === 'all' ? 'on' : ''}" data-pf="all">Semua (${total})</button>
+                    <button class="chip ${filterMode === 'unpacked' ? 'on' : ''}" data-pf="unpacked">Belum Dipacking (${total - packedCount})</button>
+                    <button class="chip ${filterMode === 'packed' ? 'on' : ''}" data-pf="packed">Sudah Dipacking (${packedCount})</button>
+                </div>
+            `;
+
+            if (!boughtOrders.length) {
+                return html + `<div class="empty">Belum ada barang yang dibeli untuk dipacking.<br>Ubah status pesanan ke <b>Dibeli</b> terlebih dahulu.</div>`;
+            }
+
+            if (!filtered.length) {
+                return html + `<div class="empty">Tidak ada barang dengan kriteria filter ini.</div>`;
+            }
+
+            Object.keys(groups).forEach(cid => {
+                const c = cust(cid);
+                const items = groups[cid];
+                html += `
+                    <div class="card">
+                        <div class="row mb-2">
+                            <div class="who text-base">${e(c.name)}</div>
+                            <span class="fx">${items.filter(x => x.packed).length}/${items.length} Masuk Koper</span>
+                        </div>
+                        ${items.map(o => `
+                            <div class="pack-item ${o.packed ? 'packed' : ''}">
+                                <input type="checkbox" class="pack-checkbox" data-pk="${o.id}" ${o.packed ? 'checked' : ''}>
+                                ${o.photo ? `<img class="thumb" style="width:42px;height:42px" src="${o.photo}" data-z="${o.id}" alt="Foto">` : ''}
+                                <div style="flex:1">
+                                    <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${e(o.item)} ${o.qty > 1 ? '<span class="text-blue-600 font-extrabold">x' + o.qty + '</span>' : ''}</div>
+                                    <div class="fx">${e(o.store || 'Toko tak dicatat')} · <span class="tag ${o.status === 5 ? 'lunas' : 'utang'}">${ST[o.status]}</span></div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            });
+
+            return html;
+        }
+
+        function vC() {
+            const add = '<button class="primary" data-ec="">+ Pelanggan Baru</button>';
+            if (!S.customers.length) return add + '<div class="empty">Belum ada pelanggan. Tambah dulu untuk mempermudah pencatatan titipan.</div>';
+
+            return add + S.customers.map(c => {
+                const os = S.orders.filter(o => o.cid === c.id);
+                const t = stat(os);
+                return `<div class="card">
+                    <div class="row">
+                        <div>
+                            <div class="who">${e(c.name)}</div>
+                            <div class="fx">${e(c.wa || 'Belum ada nomor WhatsApp')}</div>
+                        </div>
+                        <div style="text-align:right">
+                            <div class="fx">${os.length} pesanan</div>
+                            ${t.out > 0 ? `<span class="tag utang">Sisa Bayar ${rb(t.out)}</span>` : os.length ? '<span class="tag lunas">Lunas Semua</span>' : ''}
+                        </div>
+                    </div>
+                    ${c.notes ? `<div class="text-xs text-slate-500 mt-2 bg-slate-100 dark:bg-slate-800 p-2 rounded-lg">${e(c.notes)}</div>` : ''}
+                    <div class="acts mt-3">
+                        <button data-ec="${c.id}" style="flex:1">Ubah / Detail</button>
+                        ${c.wa && t.out > 0 ? `<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa, tagih(c))}">Tagih WA</a>` : ''}
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        function tagih(c) {
+            const os = S.orders.filter(o => o.cid === c.id && bought(o) && sisa(o) > 0);
+            return `Halo ${c.name}, berikut rincian titipan yang belum dibayar ya:\n\n` +
+                os.map(o => '• ' + o.item + (o.qty > 1 ? ' x' + o.qty : '') + ': ' + (paidOf(o) > 0 ? 'sisa ' + rb(sisa(o)) + ' (total ' + rb(sell(o)) + ')' : rb(sell(o)))).join('\n') +
+                `\n\nTotal Sisa Bayar: ${idr(os.reduce((x, o) => x + sisa(o), 0))}.\nTerima kasih banyak! 🙏`;
+        }
+
+        function paySheet(id) {
+            const o = S.orders.find(x => x.id === id), c = cust(o.cid), p = paidOf(o), r = sisa(o);
+            sheet(`
+                <h1 class="text-xl font-extrabold mb-1">Catat Pembayaran</h1>
+                <div class="sub text-xs text-slate-500 mb-3">${e(c.name)} · ${e(o.item)}</div>
+                <div class="prev">
+                    Total Jual: <b>${idr(sell(o))}</b><br>
+                    Sudah Dibayar: <b>${idr(p)}</b><br>
+                    <span class="text-red-500 font-extrabold">Sisa Tagihan: ${idr(r)}</span>
+                </div>
+                ${r > 0 ? `
+                    <button class="primary" id="pf">Bayar Lunas (${idr(r)})</button>
+                    <label class="mt-3">Atau bayar sebagian (Nominal Rp)</label>
+                    <input id="pn" inputmode="numeric" placeholder="mis. 100000">
+                    <button class="primary" id="pp" style="background:var(--ink);color:var(--bg)">Simpan Pembayaran Sebagian</button>
+                ` : '<div class="prev text-emerald-600">Pesanan ini sudah lunas! 🎉</div>'}
+                ${p > 0 ? '<button style="width:100%;margin-top:12px;color:var(--hi)" id="pz">Reset Pembayaran (Kembali ke Rp 0)</button>' : ''}
+            `);
+
+            const apply = a => {
+                const x = Math.min(a, r);
+                o.paidAmt = p + x;
+                if (sisa(o) <= 0 && o.status < 3) o.status = 3;
+                save(); close(); render();
+                toast(`<span>${sisa(o) > 0 ? 'Pembayaran dicatat ✔ Sisa ' + rb(sisa(o)) : 'Lunas ✔'}</span>` + (c.wa ? `<a class="wa text-xs py-1 px-3 min-h-[32px]" target="_blank" rel="noopener" href="${waLink(c.wa, payMsg(o, x))}">Kabari WA</a>` : ''));
+            };
+
+            if (r > 0) {
+                $('#pf').onclick = () => apply(r);
+                $('#pp').onclick = () => {
+                    const a = Math.round(num(String($('#pn').value).replace(/\./g, '')));
+                    if (a <= 0) return toast('Isi nominal pembayaran dulu ya', 2500);
+                    apply(a);
+                };
+            }
+            if (p > 0) {
+                $('#pz').onclick = () => {
+                    const b = $('#pz');
+                    if (!b.dataset.s) { b.dataset.s = 1; return b.textContent = 'Yakin? Ketuk lagi untuk reset pembayaran ke Rp 0'; }
+                    o.paidAmt = 0;
+                    if (o.status === 3) o.status = 2;
+                    save(); close(); render();
+                };
+            }
+        }
+
+        function byCust() { return S.customers.map(c => ({ c, ...stat(S.orders.filter(o => o.cid === c.id)) })).filter(x => x.n); }
+        function topCat() {
+            const m = {};
+            S.orders.filter(bought).forEach(o => m[o.cat] = (m[o.cat] || 0) + sell(o));
+            const a = Object.entries(m).sort((x, y) => y[1] - x[1])[0];
+            return a ? a[0] : '-';
+        }
+
+        function summary() {
+            const s = stat(S.orders), bc = byCust().sort((a, b) => b.rev - a.rev)[0];
+            return `✈️ Rekap ${S.trip.name}\n\n` +
+                `• Pesanan Dibeli: ${s.nb} dari ${s.n}\n` +
+                `• Pesanan Done: ${S.orders.filter(o => o.status === 5).length}\n` +
+                `• Total Omzet: ${idr(s.rev)}\n` +
+                `• Total Modal: ${idr(s.c)}\n` +
+                `• Untung Bersih: ${idr(s.m)}${s.rev ? ' (' + (s.m / s.rev * 100).toFixed(1).replace('.', ',') + '%)' : ''}\n` +
+                `• Uang Masuk: ${idr(s.paid)}\n` +
+                `• Belum Dibayar: ${idr(s.out)}\n` +
+                `• Top Pelanggan: ${bc && bc.rev ? bc.c.name + ' (' + rb(bc.rev) + ')' : '-'}\n` +
+                `• Kategori Terlaris: ${topCat()}`;
+        }
+
+        function vD() {
+            const s = stat(S.orders), bc = byCust().sort((a, b) => b.rev - a.rev), mx = Math.max(1, ...bc.map(x => x.rev));
+            const used = [...new Set(S.orders.map(o => o.cur).concat(S.trip.cur))];
+
+            return `
+                ${S.ratesAt ? '' : '<div class="warn">Kurs masih estimasi awal. Perbarui atau sesuaikan kurs di bawah sebelum belanja.</div>'}
+                
+                <div class="hero">
+                    <span class="sub" style="color:inherit;opacity:.75">Untung Bersih (Barang Dibeli)</span>
+                    <b>${idr(s.m)}</b>
+                    <span class="text-xs opacity-80">Omzet ${idr(s.rev)} − Modal ${idr(s.c)}</span>
+                </div>
+
+                <div class="grid">
+                    <div class="card"><span class="fx">Total Pesanan</span><b>${s.n} <span class="fx">(${s.nb} dibeli)</span></b></div>
+                    <div class="card"><span class="fx">Uang Masuk</span><b>${idr(s.paid)}</b></div>
+                    <div class="card"><span class="fx">Belum Dibayar</span><b style="color:var(--hi)">${idr(s.out)}</b></div>
+                    <div class="card"><span class="fx">Belum Dibeli</span><b>${idr(s.wait)}</b></div>
+                </div>
+
+                <h2 class="font-extrabold text-base mt-5 mb-2">Performa Per Pelanggan</h2>
+                ${bc.length ? bc.map(x => `
+                    <div class="card">
+                        <div class="row">
+                            <span class="who">${e(x.c.name)}</span>
+                            <span><b>${idr(x.rev)}</b></span>
+                        </div>
+                        <div class="fx">${x.n} pesanan · Untung ${rb(x.m)}${x.out > 0 ? ' · Utang ' + rb(x.out) : ''}</div>
+                        <div class="bar"><i style="width:${x.rev / mx * 100}%"></i></div>
+                    </div>
+                `).join('') : '<div class="sub">Belum ada data pelanggan.</div>'}
+
+                <h2 class="font-extrabold text-base mt-5 mb-2">Pengaturan Kurs Mata Uang</h2>
+                <div class="card">
+                    ${used.map(c => `
+                        <label>${c} (Rp / 1 ${c})</label>
+                        <input inputmode="decimal" data-r="${c}" value="${S.rates[c] ?? ''}">
+                    `).join('')}
+                    <button class="primary" style="background:var(--ink);color:var(--bg)" id="live">Ambil Kurs Terbaru (Online)</button>
+                    <div class="fx mt-2">${S.ratesAt ? 'Terakhir diubah: ' + S.ratesAt : 'Belum pernah diubah'}. Kurs dikunci pada tiap pesanan saat dicatat.</div>
+                </div>
+
+                <h2 class="font-extrabold text-base mt-5 mb-2">Rekap & Cadangan Data</h2>
+                <pre>${e(summary())}</pre>
+                <div class="acts mt-3">
+                    <a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(summary())}" style="flex:1">Bagikan Rekap WA</a>
+                    <button id="bak">Ekspor Cadangan JSON</button>
+                </div>
+                <div class="mt-2">
+                    <input type="file" id="import-file" accept=".json" hidden>
+                    <button class="w-full bg-slate-200 dark:bg-slate-700 text-sm font-bold" id="btn-import">Impor Cadangan JSON</button>
+                </div>
+
+                <button class="primary" style="background:var(--soft);color:var(--ink);margin-top:20px" id="newtrip">Tutup Trip & Mulai Trip Baru</button>
+            `;
+        }
+
+        function orderSheet(id) {
+            const o = S.orders.find(x => x.id === id) || {
+                cid: S.customers[0]?.id || '', item: '', store: '', cat: CAT[0],
+                cur: S.trip.cur, amt: '', qty: 1, markup: S.trip.markup, mt: S.trip.mt || 'pct', packed: false
+            };
+            let photo = o.photo || '';
+
+            sheet(`
+                <h1 class="text-xl font-extrabold mb-3">${id ? 'Ubah Pesanan' : 'Pesanan Baru'}</h1>
+                <label>Pelanggan</label>
+                <select id="f-c">
+                    ${S.customers.map(c => `<option value="${c.id}" ${c.id === o.cid ? 'selected' : ''}>${e(c.name)}</option>`).join('')}
+                    <option value="+">+ Tambah Pelanggan Baru…</option>
+                </select>
+
+                <div id="nc" hidden class="bg-slate-100 dark:bg-slate-800 p-3 rounded-xl mt-2">
+                    <label class="mt-0">Nama Pelanggan Baru</label>
+                    <input id="f-nn" placeholder="mis. Bu Yuni">
+                    <label>Nomor WhatsApp</label>
+                    <input id="f-nw" inputmode="tel" placeholder="08123456789">
+                </div>
+
+                <label>Nama Barang Titipan</label>
+                <input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Lotion 170ml">
+
+                <label>Nama Toko / Lokasi</label>
+                <input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi / Uniqlo">
+
+                <label>Kategori</label>
+                <select id="f-k">${CAT.map(k => `<option ${k === o.cat ? 'selected' : ''}>${k}</option>`).join('')}</select>
+
+                <div class="two">
+                    <div>
+                        <label>Mata Uang</label>
+                        <select id="f-u">${Object.keys(S.rates).map(c => `<option ${c === o.cur ? 'selected' : ''}>${c}</option>`).join('')}</select>
+                    </div>
+                    <div>
+                        <label>Harga Beli (Satuan)</label>
+                        <input id="f-a" inputmode="decimal" value="${o.amt}" placeholder="0">
+                    </div>
+                </div>
+
+                <label>Jumlah (Qty)</label>
+                <input id="f-q" inputmode="numeric" value="${o.qty}">
+
+                <label>Markup (Keuntungan)</label>
+                <div class="two">
+                    <select id="f-mt">
+                        <option value="pct" ${o.mt !== 'idr' ? 'selected' : ''}>Persen (%)</option>
+                        <option value="idr" ${o.mt === 'idr' ? 'selected' : ''}>Nominal (Rp/pcs)</option>
+                    </select>
+                    <input id="f-m" inputmode="decimal" value="${o.markup}" aria-label="Besar markup">
+                </div>
+
+                <label>Foto Produk / Struk</label>
+                <div id="pb"></div>
+                <input type="file" id="p-cam" accept="image/*" capture="environment" hidden>
+                <input type="file" id="p-gal" accept="image/*" hidden>
+
+                <div class="prev" id="pv"></div>
+
+                <button class="primary" id="f-ok">${id ? 'Simpan Perubahan' : 'Catat Pesanan'}</button>
+                ${id ? '<button style="width:100%;margin-top:10px;color:var(--hi)" id="del">Hapus Pesanan Ini</button>' : ''}
+            `);
+
+            const pv = () => {
+                const cur = $('#f-u').value, r = S.rates[cur] || 0;
+                const a = num($('#f-a').value) * Math.max(1, num($('#f-q').value)) * r;
+                const m = num($('#f-m').value), t = $('#f-mt').value;
+                const p = Math.ceil((a + (t === 'idr' ? m * Math.max(1, num($('#f-q').value)) : a * m / 100)) / 500) * 500;
+                $('#pv').innerHTML = a ? `Modal ≈ <b>${idr(a)}</b><br>Harga Jual Jastip: <b>${idr(p)}</b> <span class="fx">(Untung ${idr(p - a)})</span>` : 'Isi harga beli dulu untuk menghitung estimasi rupiah.';
+            };
+
+            ['f-u', 'f-a', 'f-q', 'f-m', 'f-mt'].forEach(i => $('#' + i).oninput = pv);
+            pv();
+
+            $('#f-mt').onchange = () => {
+                const i = $('#f-m'), n = num(i.value), t = $('#f-mt').value;
+                if (t === 'idr' && n < 1000) i.value = '25000';
+                if (t === 'pct' && n > 100) i.value = S.trip.markup || 15;
+                pv();
+            };
+
+            const paint = () => {
+                $('#pb').innerHTML = photo ? `<img class="big" src="${photo}" alt="Foto produk"><button id="pr" style="width:100%;margin-top:6px">Hapus Foto</button>` :
+                    '<div class="two"><button id="pc">📷 Kamera</button><button id="pg">🖼 Galeri</button></div>';
+                if (photo) $('#pr').onclick = () => { photo = ''; paint(); };
+                else { $('#pc').onclick = () => $('#p-cam').click(); $('#pg').onclick = () => $('#p-gal').click(); }
+            };
+
+            const pick = async ev => {
+                const f = ev.target.files[0];
+                if (!f) return;
+                try {
+                    photo = await shrink(f);
+                    paint();
+                } catch (x) {
+                    toast('Gagal memproses foto, coba pilih foto lain.', 3000);
+                }
+            };
+
+            $('#p-cam').onchange = pick;
+            $('#p-gal').onchange = pick;
+            paint();
+
+            $('#f-c').onchange = () => { $('#nc').hidden = $('#f-c').value !== '+'; };
+            $('#nc').hidden = $('#f-c').value !== '+';
+
+            $('#f-ok').onclick = () => {
+                let cid = $('#f-c').value;
+                if (cid === '+') {
+                    const n = $('#f-nn').value.trim();
+                    if (!n) return toast('Isi nama pelanggan baru dulu ya', 2500);
+                    cid = uid();
+                    S.customers.push({ id: cid, name: n, wa: $('#f-nw').value.trim(), notes: '' });
+                }
+                if (!cid) return toast('Pilih pelanggan terlebih dahulu', 2500);
+
+                const item = $('#f-i').value.trim(), amt = num($('#f-a').value);
+                if (!item || !amt) return toast('Nama barang & harga beli wajib diisi', 2500);
+
+                const cur = $('#f-u').value;
+                if (!S.rates[cur]) return toast('Kurs ' + cur + ' belum diatur', 2500);
+
+                const d = {
+                    cid, item, store: $('#f-s').value.trim(), cat: $('#f-k').value,
+                    cur, amt, qty: Math.max(1, Math.round(num($('#f-q').value)) || 1),
+                    markup: num($('#f-m').value), mt: $('#f-mt').value, photo
+                };
+
+                if (id) {
+                    const x = S.orders.find(z => z.id === id);
+                    Object.assign(x, d);
+                    if (!x.rate || x.cur !== cur) x.rate = S.rates[cur];
+                } else {
+                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, ts: Date.now() });
+                }
+
+                S.trip.cur = cur;
+                S.trip.markup = d.markup;
+                S.trip.mt = d.mt;
+                save(); close(); render();
+                toast(id ? 'Pesanan diperbarui ✔' : 'Pesanan dicatat ✔', 2500);
+            };
+
+            if (id) {
+                $('#del').onclick = () => {
+                    const b = $('#del');
+                    if (b.dataset.s) {
+                        S.orders = S.orders.filter(x => x.id !== id);
+                        save(); close(); render();
+                    } else {
+                        b.dataset.s = 1;
+                        b.textContent = 'Yakin hapus? Ketuk sekali lagi';
+                    }
+                };
+            }
+        }
+
+        function shrink(f) {
+            return new Promise((res, rej) => {
+                const r = new FileReader();
+                r.onerror = rej;
+                r.onload = () => {
+                    const i = new Image();
+                    i.onerror = rej;
+                    i.onload = () => {
+                        const k = Math.min(1, 640 / Math.max(i.width, i.height));
+                        const c = document.createElement('canvas');
+                        c.width = Math.round(i.width * k);
+                        c.height = Math.round(i.height * k);
+                        c.getContext('2d').drawImage(i, 0, 0, c.width, c.height);
+                        res(c.toDataURL('image/jpeg', 0.72));
+                    };
+                    i.src = r.result;
+                };
+                r.readAsDataURL(f);
+            });
+        }
+
+        function custSheet(id) {
+            const c = S.customers.find(x => x.id === id) || { name: '', wa: '', notes: '' };
+            sheet(`
+                <h1 class="text-xl font-extrabold mb-3">${id ? 'Ubah Pelanggan' : 'Pelanggan Baru'}</h1>
+                <label>Nama Lengkap</label>
+                <input id="c-n" value="${e(c.name)}" placeholder="mis. Bu Yuni">
+                <label>Nomor WhatsApp</label>
+                <input id="c-w" inputmode="tel" value="${e(c.wa)}" placeholder="08123456789">
+                <label>Catatan Khusus (Alamat / Preferensi)</label>
+                <textarea id="c-t" rows="3" placeholder="mis. Suka barang limited edition / Kirim via Wahana">${e(c.notes)}</textarea>
+                <button class="primary" id="c-ok">Simpan Pelanggan</button>
+                ${id ? '<button style="width:100%;margin-top:10px;color:var(--hi)" id="c-del">Hapus Pelanggan</button>' : ''}
+            `);
+
+            $('#c-ok').onclick = () => {
+                const n = $('#c-n').value.trim();
+                if (!n) return toast('Nama pelanggan wajib diisi', 2500);
+                const d = { name: n, wa: $('#c-w').value.trim(), notes: $('#c-t').value.trim() };
+                if (id) Object.assign(c, d);
+                else S.customers.push({ id: uid(), ...d });
+                save(); close(); render();
+            };
+
+            if (id) {
+                $('#c-del').onclick = () => {
+                    const b = $('#c-del');
+                    if (S.orders.some(o => o.cid === id)) return b.textContent = 'Pelanggan masih punya pesanan. Hapus pesanannya dulu.';
+                    if (!b.dataset.s) { b.dataset.s = 1; return b.textContent = 'Yakin hapus? Ketuk sekali lagi'; }
+                    S.customers = S.customers.filter(x => x.id !== id);
+                    save(); close(); render();
+                };
+            }
+        }
+
+        function tripSheet() {
+            sheet(`
+                <h1 class="text-xl font-extrabold mb-3">Pengaturan Trip</h1>
+                <label>Nama Trip</label>
+                <input id="t-n" value="${e(S.trip.name)}" placeholder="mis. Trip Osaka - Tokyo Ok 2026">
+                <label>Markup Standar Default</label>
+                <div class="two">
+                    <select id="t-mt">
+                        <option value="pct" ${S.trip.mt !== 'idr' ? 'selected' : ''}>Persen (%)</option>
+                        <option value="idr" ${S.trip.mt === 'idr' ? 'selected' : ''}>Nominal (Rp/pcs)</option>
+                    </select>
+                    <input id="t-m" inputmode="decimal" value="${S.trip.markup}" aria-label="Besar markup standar">
+                </div>
+                <button class="primary" id="t-ok">Simpan Pengaturan</button>
+            `);
+
+            $('#t-ok').onclick = () => {
+                S.trip.name = $('#t-n').value.trim() || 'Trip Baru';
+                S.trip.markup = num($('#t-m').value);
+                S.trip.mt = $('#t-mt').value;
+                save(); close(); render();
+            };
+        }
+
+        // Event Listener khusus Checkbox Packing
+        document.addEventListener('change', ev => {
+            if (ev.target.dataset.pk) {
+                const id = ev.target.dataset.pk;
+                const o = S.orders.find(x => x.id === id);
+                if (o) {
+                    o.packed = ev.target.checked;
+                    save();
+                    render();
+                }
+            }
+        });
+
+        document.addEventListener('click', ev => {
+            const z = ev.target.closest('[data-z]');
+            if (z) {
+                const o = S.orders.find(x => x.id === z.dataset.z);
+                if (o) sheet(`<div class="who text-base mb-2">${e(o.item)}</div><img class="big" style="max-height:70vh" src="${o.photo}" alt="Foto ${e(o.item)}"><button class="primary" id="zc">Tutup Gambar</button>`);
+                return;
+            }
+
+            const t = ev.target.closest('button');
+            if (!t) return;
+            const d = t.dataset;
+
+            if (t.id === 'zc') return close();
+            if (t.id === 'btn-packing') { S.tab = 'p'; save(); render(); }
+            else if (d.t) { S.tab = d.t; save(); render(); }
+            else if (d.f !== undefined) { S.filter = +d.f; render(); }
+            else if (d.pf !== undefined) { S.packFilter = d.pf; render(); }
+            else if (d.s) { const [i, n] = d.s.split(':'); reqStatus(i, +n); }
+            else if (d.pay) paySheet(d.pay);
+            else if (d.eo) orderSheet(d.eo);
+            else if (d.ec !== undefined) custSheet(d.ec);
+            else if (t.id === 'fab') orderSheet();
+            else if (t.id === 'gear') tripSheet();
+            else if (t.id === 'bak') exportBackup();
+            else if (t.id === 'btn-import') $('#import-file').click();
+            else if (t.id === 'newtrip') {
+                if (!t.dataset.s) { t.dataset.s = 1; t.textContent = 'Yakin? Pesanan direset, data pelanggan tetap ada. Ketuk lagi'; return; }
+                S.history.push({ name: S.trip.name, summary: summary(), ts: Date.now() });
+                S.orders = [];
+                S.trip.name = 'Trip Baru';
+                S.filter = -1;
+                S.tab = 'q';
+                save(); render();
+            }
+            else if (t.id === 'live') liveRate(t);
+        });
+
+        document.addEventListener('input', ev => {
+            if (ev.target.id === 'q-search') {
+                S.searchQuery = ev.target.value;
+                render();
+                const el = $('#q-search');
+                if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+                return;
+            }
+            const c = ev.target.dataset.r;
+            if (c) {
+                S.rates[c] = num(ev.target.value);
+                S.ratesAt = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+                save();
+            }
+        });
+
+        document.addEventListener('change', ev => {
+            if (ev.target.id === 'import-file') {
+                const file = ev.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = e => {
+                    try {
+                        const imported = JSON.parse(e.target.result);
+                        if (imported && (imported.orders || imported.customers)) {
+                            S = Object.assign(def(), imported);
+                            save(); render();
+                            toast('Data cadangan berhasil diimpor! ✔', 3000);
+                        } else {
+                            toast('Format file cadangan JSON tidak valid.', 3000);
+                        }
+                    } catch (err) {
+                        toast('Gagal membaca file cadangan JSON.', 3000);
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        function exportBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(S, null, 2));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `jastip-cadangan-${S.trip.name.replace(/\s+/g, '-').toLowerCase()}.json`);
+            document.body.appendChild(dlAnchorElem);
+            dlAnchorElem.click();
+            dlAnchorElem.remove();
+            toast('File cadangan JSON berhasil diunduh ✔', 3000);
+        }
+
+        async function liveRate(b) {
+            b.textContent = 'Mengambil kurs terbaru…';
+            try {
+                const ac = new AbortController();
+                setTimeout(() => ac.abort(), 7000);
+                const res = await fetch('https://open.er-api.com/v6/latest/IDR', { signal: ac.signal });
+                const j = await res.json();
+                if (j && j.rates) {
+                    Object.keys(S.rates).forEach(c => {
+                        if (j.rates[c]) S.rates[c] = Math.round(1 / j.rates[c] * 100) / 100;
+                    });
+                    S.ratesAt = new Date().toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) + ' (Otomatis)';
+                    save(); render();
+                    toast('Kurs mata uang berhasil diperbarui ✔', 3000);
+                } else {
+                    throw new Error('Rates response error');
+                }
+            } catch (er) {
+                b.textContent = 'Ambil Kurs Terbaru (Online)';
+                toast('Gagal mengambil kurs otomatis. Silakan isi kurs manual.', 4000);
+            }
+        }
+
+        render();
+    </script>
 </body>
 </html>
