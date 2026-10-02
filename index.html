@@ -404,15 +404,8 @@
             transition: all 0.2s ease;
         }
         .pack-item.packed {
-            opacity: 0.6;
-        }
-        .pack-checkbox {
-            width: 24px;
-            height: 24px;
-            margin-top: 2px;
-            border-radius: 6px;
-            accent-color: var(--ok);
-            cursor: pointer;
+            opacity: 0.65;
+            background: var(--soft-accent);
         }
 
         @media (prefers-reduced-motion: no-preference) {
@@ -427,7 +420,6 @@
 <body>
     <header class="max-w-[600px] mx-auto pt-4 px-4 pb-2 flex justify-between items-center gap-2">
         <div class="flex items-center gap-2">
-            <!-- Tombol Kembali ke Dashboard Utama -->
             <button id="btn-back-dash" class="bg-slate-200 dark:bg-slate-700 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1">
                 <span>⬅️</span> <span>Dashboard</span>
             </button>
@@ -494,7 +486,7 @@
             filter: -1,
             searchQuery: '',
             packFilter: 'all',
-            selectedCargoIds: [] // Menyimpan id item yang dicentang untuk kargo
+            selectedCargoIds: []
         });
 
         let S;
@@ -626,13 +618,19 @@
 
             return h + L.map(o => {
                 const c = cust(o.cid), nx = o.status < 5 ? ST[o.status + 1] : null;
+                const pm = o.packMethod || 'kargo';
                 return `<div class="card">
                     <div class="row">
                         ${o.photo ? `<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">` : ''}
                         <div style="flex:1">
                             <div class="who">${e(c.name)}</div>
                             <div class="item-title">${e(o.item)}${o.qty > 1 ? ' ×' + o.qty : ''}</div>
-                            <div class="fx">${e(o.store || 'Toko tak dicatat')} · ${fx(o.amt, o.cur)}${o.qty > 1 ? ' /pcs' : ''} · ${mkl(o)}</div>
+                            <div class="fx">
+                                ${e(o.store || 'Toko tak dicatat')} · ${fx(o.amt, o.cur)}${o.qty > 1 ? ' /pcs' : ''} · ${mkl(o)}
+                                <span class="ml-1 px-1.5 py-0.5 text-[10px] font-bold rounded ${pm === 'kargo' ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300'}">
+                                    ${pm === 'kargo' ? '📦 Kargo' : '🧳 Koper'}
+                                </span>
+                            </div>
                         </div>
                         <div>
                             <div class="price">${idr(sell(o))}</div>
@@ -651,20 +649,20 @@
             }).join('');
         }
 
-        /* FITUR PACKING LIST & EKSPOR PDF KARGO DENGAN 1 RESI */
+        /* TAB PACKING LIST & EKSPOR PDF KARGO DENGAN STATUS CHECKBOX */
         function vP() {
             const boughtOrders = S.orders.filter(bought);
             const total = boughtOrders.length;
             const packedCount = boughtOrders.filter(o => o.packed).length;
             const pct = total ? Math.round((packedCount / total) * 100) : 0;
 
-            const cargoOrders = boughtOrders.filter(o => o.packMethod === 'kargo');
+            const cargoOrders = boughtOrders.filter(o => (o.packMethod || 'kargo') === 'kargo');
             const totalCargo = cargoOrders.length;
 
             let filterMode = S.packFilter || 'all';
             let filtered = boughtOrders;
             if (filterMode === 'kargo') filtered = cargoOrders;
-            else if (filterMode === 'koper') filtered = boughtOrders.filter(o => (o.packMethod || 'koper') === 'koper');
+            else if (filterMode === 'koper') filtered = boughtOrders.filter(o => (o.packMethod || 'kargo') === 'koper');
 
             // Grouping berdasarkan Pelanggan
             const groups = {};
@@ -679,8 +677,8 @@
                 <div class="hero mb-4">
                     <div class="flex justify-between items-start gap-2">
                         <div>
-                            <span class="sub" style="color:inherit;opacity:.8">📦 Pengiriman & Packing Kargo</span>
-                            <b>${totalCargo} Barang Kargo</b>
+                            <span class="sub" style="color:inherit;opacity:.8">📦 Pengiriman & Progress Packing</span>
+                            <b>${packedCount} / ${total} Barang Dipacking (${pct}%)</b>
                         </div>
                         <button id="btn-open-cargo-export" class="bg-amber-500 hover:bg-amber-600 text-slate-900 font-extrabold text-xs px-3 py-2 rounded-xl flex items-center gap-1 shadow">
                             <span>📄</span> <span>Export PDF Kargo (${selectedCount})</span>
@@ -688,8 +686,8 @@
                     </div>
                     <div class="bar mt-2"><i style="width:${pct}%; background:var(--ok)"></i></div>
                     <div class="text-xs opacity-90 mt-2 flex justify-between">
-                        <span>Pilih/centang barang kargo untuk digabung ke <b>1 Resi</b></span>
-                        <span><b>${selectedCount}</b> dicentang</span>
+                        <span>Centang <b>Packed ✓</b> saat memasukkan ke koper/dus</span>
+                        <span><b>${selectedCount}</b> dicentang resi</span>
                     </div>
                 </div>
 
@@ -719,24 +717,33 @@
                             <span class="fx">${items.length} Barang</span>
                         </div>
                         ${items.map(o => {
-                            const method = o.packMethod || 'koper';
+                            const method = o.packMethod || 'kargo';
                             const isCheckedForCargo = S.selectedCargoIds.includes(o.id);
                             return `
                             <div class="pack-item ${o.packed ? 'packed' : ''}">
-                                <div class="flex flex-col items-center gap-1">
-                                    <input type="checkbox" class="pack-checkbox" data-cargo-check="${o.id}" ${isCheckedForCargo ? 'checked' : ''} title="Centang untuk gabung ke Resi Kargo">
-                                    <span class="text-[9px] font-bold text-slate-400">Resi</span>
-                                </div>
                                 ${o.photo ? `<img class="thumb" style="width:48px;height:48px" src="${o.photo}" data-z="${o.id}" alt="Foto">` : ''}
                                 <div style="flex:1" class="min-w-0">
                                     <div class="font-bold text-sm text-slate-800 dark:text-slate-100">${e(o.item)} ${o.qty > 1 ? '<span class="text-blue-600 font-extrabold">x' + o.qty + '</span>' : ''}</div>
-                                    <div class="fx mb-1">${e(o.store || 'Toko tak dicatat')}</div>
+                                    <div class="fx mb-1.5">${e(o.store || 'Toko tak dicatat')}</div>
 
-                                    <div class="flex items-center gap-2 mt-1">
+                                    <div class="flex items-center gap-2 flex-wrap">
+                                        <!-- [REVISI 1] Checkbox Status Packed -->
+                                        <label class="flex items-center gap-1.5 bg-slate-200 dark:bg-slate-700 px-2 py-1 rounded-lg text-xs font-bold cursor-pointer">
+                                            <input type="checkbox" data-pack-toggle="${o.id}" ${o.packed ? 'checked' : ''} class="w-4 h-4 rounded accent-emerald-600 cursor-pointer">
+                                            <span class="${o.packed ? 'text-emerald-700 dark:text-emerald-400 font-extrabold' : 'text-slate-600 dark:text-slate-300'}">${o.packed ? 'Packed ✓' : 'Belum'}</span>
+                                        </label>
+
+                                        <!-- Dropdown Metode -->
                                         <select class="text-xs font-bold py-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800" data-pm="${o.id}">
                                             <option value="kargo" ${method === 'kargo' ? 'selected' : ''}>📦 Pengiriman Kargo</option>
                                             <option value="koper" ${method === 'koper' ? 'selected' : ''}>🧳 Masuk Koper</option>
                                         </select>
+
+                                        <!-- Checkbox Gabung Resi -->
+                                        <label class="flex items-center gap-1 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 px-2 py-1 rounded-lg text-xs font-bold cursor-pointer ml-auto">
+                                            <input type="checkbox" data-cargo-check="${o.id}" ${isCheckedForCargo ? 'checked' : ''} class="w-3.5 h-3.5 rounded accent-amber-500 cursor-pointer">
+                                            <span>Resi PDF</span>
+                                        </label>
                                     </div>
                                 </div>
                             </div>
@@ -756,7 +763,6 @@
                 return toast('Centang minimal 1 barang kargo yang ingin dimasukkan ke dalam resi ini!', 3500);
             }
 
-            // Mencari default nomor resi yang sudah diisi jika ada
             const existingResi = selectedOrders.find(o => o.cargoResi)?.cargoResi || '';
 
             sheet(`
@@ -790,7 +796,6 @@
                 const resi = $('#cargo-resi-input').value.trim();
                 if (!resi) return toast('Masukkan nomor resi kargo terlebih dahulu!', 2500);
 
-                // Update nomor resi ke orderan yang terpilih
                 selectedOrders.forEach(o => o.cargoResi = resi);
                 save();
 
@@ -805,12 +810,11 @@
             $('#btn-close-modal').onclick = () => close();
         }
 
-        /* GENERATE PRINTABLE PDF KHUSUS KARGO (1 RESI) */
+        /* [REVISI 3] GENERATE PRINTABLE PDF KARGO DENGAN FOTO PRODUK */
         function generateCargoPDF(resi, orders) {
             const printWin = window.open('', '_blank');
             if (!printWin) return toast('Gagal membuka jendela cetak. Izinkan pop-up di browser Anda.', 3000);
 
-            // Grouping item per pelanggan
             const groups = {};
             orders.forEach(o => {
                 if (!groups[o.cid]) groups[o.cid] = [];
@@ -836,9 +840,10 @@
                     .cust-block { margin-bottom: 20px; page-break-inside: avoid; }
                     .cust-name { font-size: 14px; font-weight: bold; background: #f1f5f9; padding: 6px 12px; border-radius: 6px; margin-bottom: 8px; border-left: 4px solid #2563eb; }
                     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 6px; }
-                    th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+                    th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; vertical-align: middle; }
                     th { background: #f8fafc; font-weight: bold; color: #334155; }
-                    .summary { margin-top: 24px; border-top: 2px solid #e2e8f0; pt: 12px; font-size: 12px; display: flex; justify-content: space-between; color: #475569; }
+                    .img-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #cbd5e1; }
+                    .summary { margin-top: 24px; border-top: 2px solid #e2e8f0; padding-top: 12px; font-size: 12px; display: flex; justify-content: space-between; color: #475569; }
                     @media print {
                         body { padding: 0; }
                         .no-print { display: none !important; }
@@ -846,7 +851,7 @@
                 </style>
             </head>
             <body>
-                <div class="no-print" style="margin-bottom:20px; padding:12px; background:#e0f2fe; border-radius:8px; display:flex; justify-between; align-items:center;">
+                <div class="no-print" style="margin-bottom:20px; padding:12px; background:#e0f2fe; border-radius:8px; display:flex; justify-content:space-between; align-items:center;">
                     <span style="font-weight:bold; font-size:13px; color:#0369a1;">📄 Dokumen Packing List Kargo Siap Dicetak / Disimpan ke PDF</span>
                     <button onclick="window.print()" style="background:#2563eb; color:white; border:none; padding:8px 16px; font-weight:bold; border-radius:6px; cursor:pointer;">💾 Simpan PDF / Cetak</button>
                 </div>
@@ -877,6 +882,7 @@
                         <thead>
                             <tr>
                                 <th style="width:30px; text-align:center;">No</th>
+                                <th style="width:50px; text-align:center;">Foto</th>
                                 <th>Nama Barang / Produk</th>
                                 <th>Toko / Asal</th>
                                 <th style="width:50px; text-align:center;">Qty</th>
@@ -887,6 +893,9 @@
                             ${items.map((o, idx) => `
                                 <tr>
                                     <td style="text-align:center;">${idx + 1}</td>
+                                    <td style="text-align:center;">
+                                        ${o.photo ? `<img class="img-thumb" src="${o.photo}" alt="Foto">` : '<span style="color:#94a3b8; font-size:10px;">-</span>'}
+                                    </td>
                                     <td><b>${e(o.item)}</b></td>
                                     <td>${e(o.store || '-')}</td>
                                     <td style="text-align:center; font-weight:bold; font-size:13px;">${o.qty}</td>
@@ -1028,7 +1037,7 @@
 
         function summary() {
             const s = stat(S.orders), bc = byCust().sort((a, b) => b.rev - a.rev)[0];
-            return `✈️ Rekap ${S.trip.name}\n\n` +
+            return `✈️️ Rekap ${S.trip.name}\n\n` +
                 `• Pesanan Dibeli: ${s.nb} dari ${s.n}\n` +
                 `• Pesanan Done: ${S.orders.filter(o => o.status === 5).length}\n` +
                 `• Total Omzet: ${idr(s.rev)}\n` +
@@ -1097,6 +1106,7 @@
             `;
         }
 
+        /* [REVISI 2] MODAL PESANAN DENGAN DROPDOWN METODE PACKING */
         function orderSheet(id) {
             const o = S.orders.find(x => x.id === id) || {
                 cid: S.customers[0]?.id || '', item: '', store: '', cat: CAT[0],
@@ -1125,8 +1135,19 @@
                 <label>Nama Toko / Lokasi</label>
                 <input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi / Uniqlo">
 
-                <label>Kategori</label>
-                <select id="f-k">${CAT.map(k => `<option ${k === o.cat ? 'selected' : ''}>${k}</option>`).join('')}</select>
+                <div class="two">
+                    <div>
+                        <label>Kategori</label>
+                        <select id="f-k">${CAT.map(k => `<option ${k === o.cat ? 'selected' : ''}>${k}</option>`).join('')}</select>
+                    </div>
+                    <div>
+                        <label>Metode Packing</label>
+                        <select id="f-pm">
+                            <option value="kargo" ${o.packMethod === 'kargo' ? 'selected' : ''}>📦 Kargo</option>
+                            <option value="koper" ${o.packMethod === 'koper' ? 'selected' : ''}>🧳 Koper</option>
+                        </select>
+                    </div>
+                </div>
 
                 <div class="two">
                     <div>
@@ -1224,7 +1245,8 @@
                 const d = {
                     cid, item, store: $('#f-s').value.trim(), cat: $('#f-k').value,
                     cur, amt, qty: Math.max(1, Math.round(num($('#f-q').value)) || 1),
-                    markup: num($('#f-m').value), mt: $('#f-mt').value, photo
+                    markup: num($('#f-m').value), mt: $('#f-mt').value, photo,
+                    packMethod: $('#f-pm').value
                 };
 
                 if (id) {
@@ -1232,7 +1254,7 @@
                     Object.assign(x, d);
                     if (!x.rate || x.cur !== cur) x.rate = S.rates[cur];
                 } else {
-                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, packMethod: 'kargo', cargoResi: '', ts: Date.now() });
+                    S.orders.push({ ...d, id: uid(), rate: S.rates[cur], status: 0, paidAmt: 0, packed: false, cargoResi: '', ts: Date.now() });
                 }
 
                 S.trip.cur = cur;
@@ -1336,7 +1358,7 @@
             };
         }
 
-        // Event Listener khusus Checkbox Kargo & Metode Packing
+        /* EVENT LISTENER UPDATE CHECKBOX & STATUS PACKING */
         document.addEventListener('change', ev => {
             if (ev.target.dataset.cargoCheck) {
                 const id = ev.target.dataset.cargoCheck;
@@ -1346,6 +1368,13 @@
                     S.selectedCargoIds = S.selectedCargoIds.filter(x => x !== id);
                 }
                 save(); render();
+            } else if (ev.target.dataset.packToggle) {
+                const id = ev.target.dataset.packToggle;
+                const o = S.orders.find(x => x.id === id);
+                if (o) {
+                    o.packed = ev.target.checked;
+                    save(); render();
+                }
             } else if (ev.target.dataset.pm) {
                 const id = ev.target.dataset.pm;
                 const o = S.orders.find(x => x.id === id);
