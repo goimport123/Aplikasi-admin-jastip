@@ -57,25 +57,6 @@ input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px s
 .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;cursor:zoom-in;border:1px solid var(--line)}
 .big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--soft);margin-top:6px}
 pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
-
-/* Style Tambahan untuk Kelompok Pemesan & Tampilan Ringkas (Fit 4 Card) */
-.cust-block{margin:10px 0 14px}
-.cust-hdr{font-size:13px;font-weight:800;padding:4px 0;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
-.q-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.q-card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;margin:0;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 1px 3px rgba(0,0,0,0.03)}
-.q-card .thumb{width:38px;height:38px;border-radius:6px;object-fit:cover;flex:none;cursor:zoom-in;border:1px solid var(--line)}
-.q-card .item{font-size:12px;font-weight:700;line-height:1.2;margin:2px 0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.q-card .price{font-size:12px;font-weight:800;color:var(--ink)}
-.q-card .fx{font-size:10px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.steps-compact{display:flex;gap:2px;margin:5px 0 4px}
-.steps-compact button{flex:1;height:5px;min-height:5px;padding:0;border-radius:3px;border:0;background:var(--line);cursor:pointer}
-.steps-compact button.done{background:var(--soft)}
-.steps-compact button.cur{background:var(--acc)}
-.acts-compact{display:flex;gap:4px;margin-top:4px}
-.acts-compact button{min-height:28px;padding:0 6px;font-size:11px;border-radius:8px}
-.acts-compact .go{flex:1;background:var(--acc);color:#fff;font-weight:800}
-.acts-compact .wa-sm{background:#25d366;color:#053b1c;display:inline-flex;align-items:center;justify-content:center;min-height:28px;padding:0 6px;border-radius:8px;font-weight:700;text-decoration:none;font-size:11px}
-
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
 </style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body>
 <header><div><h1 id="tn"></h1><div class="sub" id="ts"></div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
@@ -144,50 +125,14 @@ const cn=i=>vo().filter(o=>i<0||o.status===i).length;
 let h=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`;
 const q=(S.q||'').toLowerCase();const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q))).sort((a,b)=>b.ts-a.ts);
 if(!L.length)return h+`<div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div>`;
-
-// Kelompokkan berdasarkan Pemesan (cid)
-const g={};
-L.forEach(o=>{(g[o.cid]=g[o.cid]||[]).push(o)});
-
-return h+Object.keys(g).map(cid=>{
-  const c=cust(cid), orders=g[cid];
-  return `<div class="cust-block">
-    <div class="cust-hdr">
-      <div>👤 <b>${e(c.name)}</b> <span class="fx">(${orders.length} pesanan)</span></div>
-      ${c.wa?`<a class="wa-sm" target="_blank" rel="noopener" href="${waLink(c.wa,'Halo '+c.name+', rincian pesanan kamu:')}">Chat WA</a>`:''}
-    </div>
-    <div class="q-grid">
-      ${orders.map(o=>{
-        const nx=o.status<5?ST[o.status+1]:null;
-        return `<div class="q-card">
-          <div style="display:flex;gap:6px;align-items:flex-start">
-            ${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}
-            <div style="flex:1;min-width:0">
-              <div class="item" title="${e(o.item)}">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
-              <div class="fx" title="${e(o.store\vert{}\vert{}'toko ?')}">${e(o.store||'toko ?')} · ${sym(o.cur)}${o.amt}</div>
-              <div class="price">${idr(sell(o))}</div>
-            </div>
-          </div>
-          
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
-            <span class="fx" style="font-weight:700;color:var(--acc);font-size:10px">${ST[o.status]}</span>${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:18px;padding:0 5px;font-size:9px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sisa '+rb(sisa(o)):'Belum'}</button>`:''}
-          </div>
-
-          <div class="steps-compact">
-            ${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}" title="${t}"></button>`).join('')}
-          </div>
-
-          <div class="acts-compact">
-            ${nx?`<button class="go" data-s="${o.id}:${o.status+1}">${nx} ›</button>`:'<button class="go" style="background:var(--ok)" disabled>Done 🎉</button>'}
-            ${c.wa?`<a class="wa-sm" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o.status))}">WA</a>`:''}
-            <button data-eo="${o.id}" aria-label="Ubah">⋯</button>
-          </div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
-}).join('');
-}
+return h+L.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
+return `<div class="card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
+<div class="fx">${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
+<div><div class="price">${idr(sell(o))}</div><div style="text-align:right">${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:32px;padding:0 10px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sebagian · sisa '+rb(sisa(o)):'Belum bayar'}</button>`:''}</div></div></div>
+<div class="steps">${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}">${t}</button>`).join('')}</div>
+<div class="acts">${nx?`<button class="go" data-s="${o.id}:${o.status+1}">${nx} ›</button>`:'<button class="go" style="background:var(--ok)" disabled>Selesai 🎉</button>'}
+${c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o.status))}">WA</a>`:''}
+<button data-eo="${o.id}" aria-label="Ubah">⋯</button></div></div>`}).join('')}
 
 function vC(){
 const add='<button class="primary" data-ec="">+ Pelanggan baru</button>';
@@ -252,7 +197,7 @@ sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 <button class="primary" id="f-ok">${id?'Simpan':'Catat pesanan'}</button>
 <button style="width:100%;margin-top:8px" id="scan">📷 Foto struk (isi otomatis)</button><input type="file" id="f-f" accept="image/*" capture="environment" hidden>
 <div id="sr"></div>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="del">Hapus pesanan</button>':''}`);
-const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]\vert{}\vert{}0,a=num($('#f-a').value)*Math.max(1,num($('#f-q').value))*r,m=num($('#f-m').value),t=$('#f-mt').value,p=Math.ceil((a+(t==='idr'?m*Math.max(1,num($('#f-q').value)):a*m/100))/500)*500;
+const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]||0,a=num($('#f-a').value)*Math.max(1,num($('#f-q').value))*r,m=num($('#f-m').value),t=$('#f-mt').value,p=Math.ceil((a+(t==='idr'?m*Math.max(1,num($('#f-q').value)):a*m/100))/500)*500;
 $('#pv').innerHTML=a?`Modal ≈ ${idr(a)}<br>Jual ${idr(p)} <span class="fx">(untung ${idr(p-a)})</span>`:'Isi harga dulu, nanti kuhitungin ke rupiah.'};
 ['f-u','f-a','f-q','f-m','f-mt'].forEach(i=>$('#'+i).oninput=pv);pv();
 $('#f-mt').onchange=()=>{const i=$('#f-m'),n=num(i.value),t=$('#f-mt').value;if(t==='idr'&&n<1000)i.value='';if(t==='pct'&&n>100)i.value=S.trip.mt==='pct'?S.trip.markup:15;pv()};
@@ -266,7 +211,7 @@ if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelan
 if(!cid)return toast('Pilih pelanggan dulu ya',2500);
 const item=$('#f-i').value.trim(),amt=num($('#f-a').value);if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
 const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diisi',2500);
-const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))\vert{}\vert{}1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo,pm:$('#f-pm').value};
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo,pm:$('#f-pm').value};
 if(id){const x=S.orders.find(z=>z.id===id);if(x.cur!==cur||x.amt!==amt&&false)d.rate=S.rates[cur];Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
 else{S.orders.push({...d,id:uid(),rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
 S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
@@ -327,7 +272,7 @@ function shipSheet(r){const m=r?S.ships[r]:{fw:'',st:0},ids=r?S.orders.filter(o=
 sheet(`<h1>${r?'Ubah resi kargo':'Buat resi kargo'}</h1><div class="sub">${ids.length} barang</div>
 <label>Nomor resi</label><input id="s-r" value="${e(r||'')}" placeholder="mis. KG-2026-9988"><label>Kode marking (pembeda kargo udara / laut)</label><input id="s-m" value="${e(m.mk||'')}" placeholder="mis. UDR-ABC atau LT-ABC">
 <label>Nama forwarder</label><input id="s-f" value="${e(m.fw||'')}" placeholder="mis. nama jasa kargo">
-<label>Status kiriman</label><select id="s-s">${SHIP.map((t,i)=>`<option value="${i}" ${(m.st\vert{}\vert{}0)===i?'selected':''}>${t}</option>`).join('')}</select>
+<label>Status kiriman</label><select id="s-s">${SHIP.map((t,i)=>`<option value="${i}" ${(m.st||0)===i?'selected':''}>${t}</option>`).join('')}</select>
 <label style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="s-p" ${ck} ${S.pdfPrice!==false?'checked':''}>Tampilkan harga jual di PDF</label>
 <button class="primary" id="s-ok">${r?'Simpan perubahan':'Buat resi'}</button>
 ${r?'<button class="primary" style="background:var(--ink);color:var(--bg)" id="s-pdf">Simpan PDF</button><button style="width:100%;margin-top:8px;color:var(--hi)" id="s-del">Bongkar resi (barang balik ke daftar packing)</button>':''}
