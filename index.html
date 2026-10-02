@@ -349,3 +349,78 @@ S.ratesAt=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short
 catch(er){b.textContent='Coba ambil kurs terbaru';toast('Kurs otomatis belum bisa diambil di sini. Isi manual ya.',4500)}}
 render();
 </script></body></html>
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Realtime Firebase</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
+    input, button { padding: 8px; margin-top: 5px; }
+  </style>
+</head>
+<body>
+
+  <h2>Input Data</h2>
+  <input type="text" id="inputTeks" placeholder="Masukkan data...">
+  <button id="btnSimpan">Simpan ke Cloud</button>
+
+  <h2>Data Realtime di Semua Device</h2>
+  <ul id="daftarData"></ul>
+
+  <!-- Firebase SDK melalui CDN -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // 1. Tempelkan firebaseConfig dari Firebase Console di sini
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // 2. Inisialisasi Firebase & Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // Elemen DOM
+    const inputTeks = document.getElementById("inputTeks");
+    const btnSimpan = document.getElementById("btnSimpan");
+    const daftarData = document.getElementById("daftarData");
+
+    // 3. Fungsi Menyimpan Data ke Firestore
+    btnSimpan.addEventListener("click", async () => {
+      const teks = inputTeks.value.trim();
+      if (!teks) return;
+
+      try {
+        await addDoc(collection(db, "catatan"), {
+          konten: teks,
+          waktu: new Date()
+        });
+        inputTeks.value = "";
+      } catch (e) {
+        console.error("Gagal menyimpan data:", e);
+      }
+    });
+
+    // 4. Fungsi Membaca Data secara Realtime
+    onSnapshot(collection(db, "catatan"), (snapshot) => {
+      daftarData.innerHTML = "";
+      snapshot.forEach((doc) => {
+        const item = doc.data();
+        const li = document.createElement("li");
+        li.textContent = item.konten;
+        daftarData.appendChild(li);
+      });
+    });
+  </script>
+</body>
+</html>
+
