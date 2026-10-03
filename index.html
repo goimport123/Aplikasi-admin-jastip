@@ -99,9 +99,15 @@ try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 const K='jastip-v1';
 const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',kp:[],trips:[],tripId:'',view:'cur'});
 let S=def();
-function loadCache(){try{const x=JSON.parse(localStorage.getItem(K)||'null');if(x)S=Object.assign(def(),x)}catch(e){}}
+let localPending=false;
+function loadCache(){
+  try{
+    const x=JSON.parse(localStorage.getItem(K)||'null');
+    if(x)S=Object.assign(def(),x);
+    localPending=localStorage.getItem(K+'-pending')==='1';
+  }catch(e){}
+}
 loadCache();
-const localBackup=JSON.parse(JSON.stringify(S));
 let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null,cloudDirty=false,cloudState='connecting',cloudStarted=false;
 let initialCloud={customers:false,orders:false,trips:false,ships:false,meta:false};
 const cloudShadow={customers:{},orders:{},trips:{},ships:{},meta:''};
@@ -111,9 +117,15 @@ function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history
   pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1}}
 function metaData(){return {...metaPlain(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
 function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Firebase tersambung':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Firebase bermasalah':'☁ Menghubungkan…'}
-function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+function cacheSave(){
+  try{
+    localStorage.setItem(K,JSON.stringify(S));
+    if(localPending)localStorage.setItem(K+'-pending','1');
+  }catch(e){}
+}
 
 function save(){
+  localPending=true;
   cacheSave();
   if(!cloudReady){cloudDirty=true;return}
   if(cloudWriting){cloudDirty=true;return}
@@ -163,6 +175,8 @@ async function syncCloud(){
         });
       }
     }
+    localPending=false;
+    try{localStorage.setItem(K+'-pending','0')}catch(e){}
     setCloudState('online');
   }catch(err){
     console.error(err);cloudDirty=true;setCloudState('error');toast('Gagal menyimpan ke Firebase. Data tetap tersimpan di perangkat; coba lagi saat koneksi pulih.',6000);
@@ -201,9 +215,21 @@ async function cloudTick(){
   if(!Object.values(initialCloud).every(Boolean))return;
   if(!cloudBooted){
     cloudBooted=true;
-    const cloudEmpty=!S.customers.length&&!S.orders.length&&!S.trips.length&&!Object.keys(S.ships||{}).length;
-    const localHadData=localBackup.customers.length||localBackup.orders.length||localBackup.trips.length||Object.keys(localBackup.ships||{}).length;
-    if(cloudEmpty&&localHadData){S=Object.assign(def(),localBackup)}
+
+    // Jika sesi sebelumnya ditutup sebelum Firebase selesai menyimpan,
+    // cache lokal berisi perubahan terbaru. Jangan biarkan snapshot cloud
+    // yang masih lama menimpa perubahan tersebut.
+    if(localPending){
+      loadCache();
+      toast('Memulihkan perubahan terakhir dari perangkat…',3000);
+    }else{
+      const cloudEmpty=!S.customers.length&&!S.orders.length&&!S.trips.length&&!Object.keys(S.ships||{}).length;
+      if(cloudEmpty){
+        // Tidak ada data di cloud: pertahankan cache lokal bila ada.
+        loadCache();
+      }
+    }
+
     ensureTrip();
     S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
     if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
