@@ -64,14 +64,67 @@ input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px s
 .toast{position:fixed;left:12px;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;z-index:9;max-width:536px;margin:auto}
 .warn{background:#fff3c4;color:#5b4700;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px}.savehint{font-size:11px;color:var(--mute)}
 .empty{text-align:center;color:var(--mute);padding:40px 10px}
-/* Layout tab Pesanan: header + filter tetap, hanya daftar order yang scroll */
-body.orders-lock{overflow:hidden}
-body.orders-lock main{height:calc(100dvh - var(--head-h,78px) - var(--nav-h,68px));min-height:0;overflow:hidden}
-body.orders-lock #m{height:100%;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-.orders-page{height:100%;min-height:0;display:flex;flex-direction:column;overflow:hidden}
-.orders-toolbar{flex:0 0 auto;background:var(--bg);padding-bottom:4px;z-index:4}
-.orders-scroll{flex:1 1 auto;min-height:0;height:0;overflow-y:auto;overflow-x:hidden;padding:0 1px 18px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:thin;touch-action:pan-y}
+/* Layout tab Pesanan
+   Header aplikasi + toolbar tetap, hanya daftar order yang scroll.
+   Dibuat dengan flex pada BODY agar tidak menghasilkan area daftar setinggi 0px. */
+body.orders-lock{
+  height:100dvh;
+  min-height:100dvh;
+  overflow:hidden;
+  padding-bottom:0;
+  display:flex;
+  flex-direction:column;
+}
+body.orders-lock header{
+  flex:0 0 auto;
+  position:relative;
+  top:auto;
+}
+body.orders-lock main{
+  flex:1 1 auto;
+  height:auto;
+  min-height:0;
+  width:100%;
+  overflow:hidden;
+}
+body.orders-lock #m{
+  height:100%;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.orders-page{
+  flex:1 1 auto;
+  height:100%;
+  min-height:0;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+.orders-toolbar{
+  flex:0 0 auto;
+  background:var(--bg);
+  padding-bottom:4px;
+  z-index:4;
+}
+.orders-scroll{
+  flex:1 1 auto;
+  height:auto;
+  min-height:0;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:0 1px 90px;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  scrollbar-width:thin;
+  touch-action:pan-y;
+}
 .orders-scroll .order-group-title{position:sticky;top:0}
+.orders-scroll > .order-group{flex:0 0 auto}
+.orders-scroll::-webkit-scrollbar{width:7px}
+.orders-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
+
 
 /* Rekap trip ringkas */
 .trip-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ink);color:var(--bg);border-radius:14px;padding:11px 13px;margin:8px 0}
