@@ -142,6 +142,23 @@ body.orders-lock #m{
   body.orders-lock .orders-scroll{padding-bottom:78px}
 }
 
+
+/* Toolbar pesanan: status lebih kecil + pencarian dan filter dalam satu baris */
+.order-toolbar-row{display:flex;gap:6px;align-items:center;margin:4px 0 6px}
+.order-toolbar-row #qs{flex:1 1 auto;min-width:0;margin:0;height:38px;min-height:38px;padding:5px 10px;font-size:13px;border-radius:10px}
+.order-toolbar-row #order-group{flex:0 0 132px;width:132px;min-width:132px;height:38px;min-height:38px;padding:5px 8px;font-size:12px;border-radius:10px}
+@media(max-width:600px){
+  body.orders-lock .orders-toolbar .chips{gap:4px;padding:4px 0;margin:2px 0}
+  body.orders-lock .orders-toolbar .chips .chip{min-height:30px;height:30px;padding:0 9px;font-size:11px;border-radius:16px}
+  body.orders-lock .orders-toolbar .order-toolbar-row{gap:5px;margin:3px 0 5px}
+  body.orders-lock .orders-toolbar .order-toolbar-row #qs{height:36px;min-height:36px;font-size:12px;padding:4px 9px}
+  body.orders-lock .orders-toolbar .order-toolbar-row #order-group{flex-basis:122px;width:122px;min-width:122px;height:36px;min-height:36px;font-size:11px;padding:4px 7px}
+}
+@media(max-width:370px){
+  body.orders-lock .orders-toolbar .order-toolbar-row #order-group{flex-basis:108px;width:108px;min-width:108px}
+  body.orders-lock .orders-toolbar .chips .chip{padding:0 8px;font-size:10px}
+}
+
 /* Rekap trip ringkas */
 .trip-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ink);color:var(--bg);border-radius:14px;padding:11px 13px;margin:8px 0}
 .trip-hero .trip-profit{font-size:21px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
@@ -407,7 +424,7 @@ requestAnimationFrame(()=>{const h=document.querySelector('header')?.getBounding
 
 function vQ(){
 const cn=i=>vo().filter(o=>i<0||o.status===i).length;
-const toolbar=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`+`<div class="row" style="margin:4px 0 8px;align-items:center"><label style="margin:0;flex:1;font-size:12px;color:var(--mute)">Kelompokkan berdasarkan</label><select id="order-group" style="width:auto;min-width:175px;min-height:40px"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`;
+const toolbar=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<div class="order-toolbar-row"><input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}"><select id="order-group" aria-label="Kelompokkan berdasarkan"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`;
 const q=(S.q||'').toLowerCase();
 const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q)));
 if(!L.length)return `<div class="orders-page"><div class="orders-toolbar">${toolbar}</div><div class="orders-scroll"><div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div></div></div>`;
