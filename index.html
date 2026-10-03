@@ -119,8 +119,35 @@ const localBase={customers:{},orders:{},trips:{},ships:{},meta:''};
 let serverSnapshotReady=false;
 
 function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOString():v)}
-function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1,updatedAtMs:localEditAt||0,clientId:CLIENT_ID}}
+function metaPlain(){
+  return {
+    trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,
+    filter:S.filter,pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,
+    tripId:S.tripId,view:S.view,v2:S.v2||1
+  };
+}
 function metaData(ts){return {...metaPlain(),updatedAtMs:ts,clientId:CLIENT_ID}}
+function logicalMeta(x){
+  if(!x)return null;
+  return {
+    trip:x.trip,rates:x.rates,ratesAt:x.ratesAt,history:x.history,tab:x.tab,
+    filter:x.filter,pk:x.pk,pick:x.pick,pdfPrice:x.pdfPrice,q:x.q,kp:x.kp,
+    tripId:x.tripId,view:x.view,v2:x.v2||1
+  };
+}
+function cloudLogicalSig(col,id){
+  try{
+    const x=JSON.parse(cloudShadow[col][id]||'null');
+    if(!x)return null;
+    return stable(x._deleted?{_deleted:true}:stripCloud(x));
+  }catch(e){return null}
+}
+function cloudMetaLogicalSig(){
+  try{
+    const x=JSON.parse(cloudShadow.meta||'null');
+    return stable(logicalMeta(x));
+  }catch(e){return null}
+}
 function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Tersimpan & sinkron':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Belum tersimpan':'☁ Menghubungkan…'}
 function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S));localStorage.setItem(K+'-pending',localPending?'1':'0');localStorage.setItem(K+'-pending-ts',String(Date.now()));localStorage.setItem(K+'-edit-at',String(localEditAt||0))}catch(e){toast('Penyimpanan HP gagal. Browser ini mungkin memblokir localStorage.',7000)}}
 function cacheBaseSave(){try{localStorage.setItem(K+'-base',JSON.stringify(localBase))}catch(e){}}
@@ -128,11 +155,47 @@ function cacheBaseLoad(){try{return JSON.parse(localStorage.getItem(K+'-base')||
 function cloudOrder(x){const y={...(x||{})};delete y._updatedAtMs;delete y._clientId;return y}
 function liveDocs(){const docs={customers:{},orders:{},trips:{},ships:{}};S.customers.forEach(x=>docs.customers[x.id]=cloudOrder(x));S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=cloudOrder(x));Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=cloudOrder(x));return docs}
 function markLocalChanges(now){const docs=liveDocs();for(const col of Object.keys(docs)){for(const [id,data] of Object.entries(docs[col])){const before=localBase[col][id];if(!before||stable(before)!==stable(data))data._updatedAtMs=now;else if(before._updatedAtMs!=null)data._updatedAtMs=before._updatedAtMs;data._clientId=CLIENT_ID}}return docs}
-function buildOps(){const docs=markLocalChanges(localEditAt||Date.now()),ops=[];for(const col of ['customers','orders','trips','ships']){const now=docs[col],base=localBase[col];for(const [id,data] of Object.entries(now)){const sig=stable(data);if(cloudShadow[col][id]!==sig)ops.push({type:'set',col,id,data,sig,ts:Number(data._updatedAtMs||localEditAt||Date.now())})}for(const id of Object.keys(base))if(!(id in now)){const ts=localEditAt||Date.now();const tomb={_deleted:true,_updatedAtMs:ts,_clientId:CLIENT_ID};ops.push({type:'set',col,id,data:tomb,sig:stable(tomb),ts})}}
-const metaSig=stable(metaPlain());if(localBase.meta!==metaSig||cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig,ts:localEditAt||Date.now()});return ops}
+function buildOps(){
+  const docs=markLocalChanges(localEditAt||Date.now()),ops=[];
+  for(const col of ['customers','orders','trips','ships']){
+    const now=docs[col],base=localBase[col];
+    for(const [id,data] of Object.entries(now)){
+      // Bandingkan data bisnis saja. Metadata sinkronisasi (_updatedAtMs/_clientId)
+      // sengaja tidak ikut dibandingkan, sehingga save() tidak menulis ulang
+      // semua dokumen hanya karena metadata Firebase berbeda.
+      const sig=stable(data);
+      if(cloudLogicalSig(col,id)!==sig){
+        ops.push({
+          type:'set',col,id,data,sig,
+          ts:Number(data._updatedAtMs||localEditAt||Date.now())
+        });
+      }
+    }
+    for(const id of Object.keys(base)){
+      if(!(id in now)){
+        const ts=localEditAt||Date.now();
+        const tomb={_deleted:true,_updatedAtMs:ts,_clientId:CLIENT_ID};
+        if(cloudLogicalSig(col,id)!==stable({_deleted:true})){
+          ops.push({type:'set',col,id,data:tomb,sig:stable(tomb),ts});
+        }
+      }
+    }
+  }
+
+  // Sama: metadata aplikasi dibandingkan tanpa updatedAtMs/clientId/serverTimestamp.
+  const metaSig=stable(metaPlain());
+  if(localBase.meta!==metaSig || cloudMetaLogicalSig()!==metaSig){
+    ops.push({type:'meta',sig:metaSig,ts:localEditAt||Date.now()});
+  }
+  return ops;
+}
 function sortCustomers(){S.customers.sort((a,b)=>String(a.name||'').trim().localeCompare(String(b.name||'').trim(),'id',{sensitivity:'base',numeric:true}))}
 function save(){sortCustomers();localEditAt=Date.now();localPending=true;cacheSave();cloudDirty=true;if(!cloudReady||cloudWriting)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,60)}
-async function syncCloud(){if(!cloudReady||cloudWriting||!serverSnapshotReady)return;cloudWriting=true;cloudDirty=false;setCloudState('saving');try{const ops=buildOps();for(const op of ops){if(op.type==='meta'){await db.runTransaction(async tx=>{const ref=db.collection('settings').doc('app');const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote.updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...metaData(op.ts),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})})}else{await db.runTransaction(async tx=>{const ref=db.collection(op.col).doc(op.id);const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote._updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...op.data,_updatedAtMs:op.ts,_clientId:CLIENT_ID})})}}
+async function syncCloud(){
+  if(!cloudReady||cloudWriting||!serverSnapshotReady)return;
+  // Jangan pernah mengirim snapshot lokal sebelum semua koleksi awal dari
+  // server selesai diterima. Ini mencegah device baru menimpa data lama.
+cloudWriting=true;cloudDirty=false;setCloudState('saving');try{const ops=buildOps();for(const op of ops){if(op.type==='meta'){await db.runTransaction(async tx=>{const ref=db.collection('settings').doc('app');const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote.updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...metaData(op.ts),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})})}else{await db.runTransaction(async tx=>{const ref=db.collection(op.col).doc(op.id);const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote._updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...op.data,_updatedAtMs:op.ts,_clientId:CLIENT_ID})})}}
 localPending=false;cloudDirty=false;localStorage.setItem(K+'-pending','0');localStorage.setItem(K+'-last-cloud-save',String(Date.now()));setCloudState('online');
 }catch(err){console.error('syncCloud',err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');toast('Belum tersimpan ke server. Data tetap aman di HP dan akan dicoba ulang.',6000)}finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,1200)}}}
 function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>{const x=d.data()||{};cloudShadow[col][d.id]=stable(x)})}
@@ -142,13 +205,26 @@ function rawCloudObjects(col){const out={};Object.entries(rawCloudRecords(col)).
 function snapshotObjects(snap){const out=[];if(!snap)return out;snap.forEach(d=>{const x=d.data()||{};if(!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out.push(y)}});return out}
 function snapshotMap(snap){const out={};if(!snap)return out;snap.forEach(d=>{const x=d.data()||{};if(!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out[d.id]=y}});return out}
 function applyMeta(snap){if(!snap||!snap.exists)return;const x=snap.data()||{};cloudMetaCache=x;if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
-function cloudError(err){console.error('Firebase',err);localPending=true;cacheSave();setCloudState('error');const code=err&&err.code?` (${err.code})`:'';toast('Firebase gagal tersambung/menyimpan'+code+'. Cek koneksi dan Anonymous Authentication.',8000)}
+function cloudError(err){
+  console.error('Firebase',err);
+  localPending=true;
+  cacheSave();
+  setCloudState('error');
+  const code=err&&err.code?` (${err.code})`:'';
+  const msg=err&&err.message?String(err.message).slice(0,120):'';
+  toast('Firebase gagal tersambung/menyimpan'+code+(msg?' · '+e(msg):'')+'. Data tetap aman di HP dan akan dicoba ulang.',9000);
+}
 function stripCloud(x){if(!x)return null;const y={...x};delete y._updatedAtMs;delete y._clientId;delete y._deleted;return y}
 function mergePendingWithServer(){const previous=cacheBaseLoad();if(!previous)return false;const current=liveDocs(),merged={customers:{},orders:{},trips:{},ships:{}};for(const col of Object.keys(merged)){const server=rawCloudRecords(col);const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server||{})]);ids.forEach(id=>{const old=previous[col]?.[id],loc=current[col]?.[id],srv=server?.[id];const changed=stable(old||null)!==stable(loc||null);if(!changed){if(srv&&!srv._deleted)merged[col][id]=stripCloud(srv);return}const localTs=Number(localEditAt||Date.now()),serverTs=Number(srv?._updatedAtMs||0);if(!srv||localTs>=serverTs){if(loc)merged[col][id]=loc}else if(!srv._deleted){merged[col][id]=stripCloud(srv)}})}S.customers=Object.values(merged.customers);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;const oldMeta=previous.meta||'',localMeta=stable(metaPlain()),serverMeta=cloudMetaCache||{};if(oldMeta!==localMeta){if(Number(localEditAt||Date.now())<Number(serverMeta.updatedAtMs||0)){applyMeta({exists:true,data:()=>serverMeta})}}else if(cloudMetaCache)applyMeta({exists:true,data:()=>cloudMetaCache});return true}
 async function cloudTick(){if(!serverSnapshotReady)return;if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0),hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;if(hasCloudData&&!localPending&&pendingMs<=cloudMs){S.customers=cloudObjects('customers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false}else if(localPending){mergePendingWithServer();toast('Menggabungkan perubahan HP dengan data server terbaru…',2500)}else{S.customers=cloudObjects('customers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}})}ensureTrip();for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();await migrateLegacyPhotos();cloudReady=true;if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}render()}else if(!localPending){S.customers=snapshotObjects(window.__snapCustomers);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render()}}
 function handleCloudSnapshot(col,s){window['__snap'+col.charAt(0).toUpperCase()+col.slice(1)]=s;if(!s.metadata.fromCache)initialCloud[col]=true;shadowCollection(col,s);serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()}
 function startCloud(){if(cloudStarted)return;cloudStarted=true;db.collection('customers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('customers',s),cloudError);db.collection('orders').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('orders',s),cloudError);db.collection('trips').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('trips',s),cloudError);db.collection('ships').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('ships',s),cloudError);db.collection('settings').doc('app').onSnapshot({includeMetadataChanges:true},s=>{cloudMetaCache=s.exists?s.data():null;if(!s.metadata.fromCache)initialCloud.meta=true;if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()},cloudError)}
-let serverWatchdog=setTimeout(()=>{if(cloudStarted&&!serverSnapshotReady){setCloudState('error');toast('Server Firebase belum memberi respons. Cek koneksi, Firestore Rules, dan Anonymous Authentication. Data tetap tersimpan di HP.',10000)}},15000);
+let serverWatchdog=setTimeout(()=>{
+  if(cloudStarted&&!serverSnapshotReady){
+    setCloudState('error');
+    toast('Firebase sudah login, tetapi snapshot Firestore belum lengkap. Cek Rules/permission setiap collection (customers, orders, trips, ships, settings). Data tetap aman di HP.',10000);
+  }
+},20000);
 let authTimeout=setTimeout(()=>{if(!cloudReady&&!cloudStarted){setCloudState('error');toast('Firebase belum terhubung. Cek internet atau aktifkan Anonymous Authentication di Firebase Console.',9000)}},12000);
 auth.onAuthStateChanged(user=>{clearTimeout(authTimeout);if(user){setCloudState('connecting');startCloud()}else{setCloudState('error');toast('Login Firebase tidak aktif. Aktifkan Authentication → Sign-in method → Anonymous.',9000)}});
 auth.signInAnonymously().catch(err=>{console.error('signInAnonymously',err);setCloudState('error');localPending=true;cacheSave();toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render()});
