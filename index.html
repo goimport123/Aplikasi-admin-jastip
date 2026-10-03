@@ -81,7 +81,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 <nav class="nav"><button data-t="q">Pesanan</button><button data-t="p">Packing</button><button data-t="c">Daftar pembeli</button><button data-t="d">Trip</button></nav>
 <div id="ov"></div><div id="tt"></div>
 <script>
-const CUR={JPY:['¥',110],KRW:['₩',11.6],SGD:['S$',12900],THB:['฿',490],HKD:['HK$',2100],USD:['$',16400],MYR:['RM',3900],TWD:['NT$',520],EUR:['€',19200],AUD:['A$',10900],CNY:['CN¥',2300]};
+const CUR={IDR:['Rp',1],JPY:['¥',110],KRW:['₩',11.6],SGD:['S$',12900],THB:['฿',490],HKD:['HK$',2100],USD:['$',16400],MYR:['RM',3900],TWD:['NT$',520],EUR:['€',19200],AUD:['A$',10900],CNY:['CN¥',2300]};
 const ST=['Dicari','Ketemu','Dibeli','Dibayar','OTW Indo','Done'];
 const CAT=['Skincare','Makeup','Obat & Vitamin','Snack & Makanan','Fashion','Lainnya'];
 const firebaseConfig={
@@ -229,8 +229,8 @@ const sym=c=>(CUR[c]||[c])[0];
 const fx=(n,c)=>sym(c)+' '+n.toLocaleString('id-ID',{maximumFractionDigits:2});
 const cust=id=>S.customers.find(c=>c.id===id)||{name:'(hapus)',wa:'',notes:''};
 const cost=o=>o.amt*o.qty*o.rate;
-const mk=o=>o.mt==='idr'?o.markup*o.qty:cost(o)*o.markup/100;
-const sell=o=>Math.ceil((cost(o)+mk(o))/500)*500;
+const mk=o=>{if(num(o.finalPrice)>0)return Math.max(0,num(o.finalPrice)-cost(o));return o.mt==='idr'?o.markup*o.qty:cost(o)*o.markup/100};
+const sell=o=>num(o.finalPrice)>0?Math.round(num(o.finalPrice)):Math.ceil((cost(o)+mk(o))/500)*500;
 const paidOf=o=>o.paidAmt||0,sisa=o=>Math.max(0,sell(o)-paidOf(o));
 
 function ensureTrip(){if(!S.trips||!S.trips.length)S.trips=[{id:'t1',name:S.trip.name,ts:Date.now()}];
@@ -240,7 +240,7 @@ const vid=()=>!S.view||S.view==='cur'?S.tripId:S.view;
 const vo=()=>S.view==='all'?S.orders:S.orders.filter(o=>o.tripId===vid());
 const tname=id=>id===S.tripId?S.trip.name:((S.trips.find(t=>t.id===id)||{}).name||'Trip');
 const vname=()=>S.view==='all'?'Semua trip':tname(vid());
-const mkl=o=>o.mt==='idr'?'+'+idr(o.markup)+'/pcs':'+'+o.markup+'%';
+const mkl=o=>num(o.finalPrice)>0?'untung '+idr(mk(o))+' (harga akhir)':o.mt==='idr'?'+'+idr(o.markup)+'/pcs':'+'+o.markup+'%';
 const bought=o=>o.status>=2;
 const waNum=n=>{n=String(n).replace(/\D/g,'');return n.startsWith('0')?'62'+n.slice(1):n.startsWith('8')?'62'+n:n};
 const waLink=(w,t)=>'https://wa.me/'+waNum(w)+'?text='+encodeURIComponent(t);
@@ -282,7 +282,7 @@ ${c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o
 
 function vC(){
 const q=(S.cq||'').trim().toLowerCase();
-const list=S.customers.filter(c=>!q||(c.name+' '+(c.wa||'')+' '+(c.notes||'')).toLowerCase().includes(q));
+const list=S.customers.filter(c=>!q||(c.name+' '+(c.wa||'')+' '+(c.address||c.notes||'')).toLowerCase().includes(q));
 const add='<button class="primary" data-ec="">+ Pelanggan baru</button>';
 const toolbar=`<div class="customer-toolbar">${add}<input id="cqs" class="customer-search" placeholder="Cari nama pelanggan…" value="${e(S.cq||'')}" autocomplete="off"><div class="customer-count">${list.length} dari ${S.customers.length} pelanggan</div></div>`;
 if(!S.customers.length)return toolbar+'<div class="empty">Belum ada pelanggan. Tambah dulu biar gampang pas catat titipan.</div>';
@@ -329,17 +329,20 @@ return `${tripBar()}${S.ratesAt?'':'<div class="warn">Kurs masih angka perkiraan
 <input type="file" id="imp" accept=".json,application/json" hidden><button style="width:100%;margin-top:8px" data-imp="1">Pulihkan dari cadangan</button>
 ${histTrips()}${S.view==='all'||vid()!==S.tripId?'':`<button class="primary" style="background:var(--soft);color:var(--ink);margin-top:10px" id="newtrip">Tutup trip (cutoff)</button><div class="fx" style="margin-top:6px">Cutoff cuma menutup trip ini dan membuka trip baru. Pesanan, pembayaran, dan resi kargo tetap tersimpan, dan trip lama bisa dibuka lagi kapan saja.</div>`}`}
 
-function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct'};
+function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct',finalPrice:''};
 let photo=o.photo||'';
 sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
+<label>Cari pelanggan berdasarkan nama</label><input id="f-cq" placeholder="Ketik nama pelanggan…" autocomplete="off" value="${e((S.customers.find(c=>c.id===o.cid)||{}).name||'')}">
 <label>Pelanggan</label><select id="f-c">${S.customers.map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
 <div id="nc" hidden><label>Nama pelanggan baru</label><input id="f-nn" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="f-nw" inputmode="tel" placeholder="0812…"></div>
 <label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
 <label>Toko</label><input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi">
 <div class="two"><div><label>Kategori</label><select id="f-k">${CAT.map(k=>`<option ${k===o.cat?'selected':''}>${k}</option>`).join('')}</select></div><div><label>Dibawa lewat</label><select id="f-pm"><option value="kargo" ${(o.pm||'kargo')==='kargo'?'selected':''}>Kargo</option><option value="koper" ${o.pm==='koper'?'selected':''}>Koper</option></select></div></div>
-<div class="two"><div><label>Mata uang</label><select id="f-u">${Object.keys(S.rates).map(c=>`<option ${c===o.cur?'selected':''}>${c}</option>`).join('')}</select></div>
-<div><label>Harga per pcs</label><input id="f-a" inputmode="decimal" value="${o.amt}"></div></div>
+<div class="two"><div><label>Mata uang modal</label><select id="f-u">${Object.keys(S.rates).map(c=>`<option ${c===o.cur?'selected':''}>${c}</option>`).join('')}</select></div>
+<div><label>Harga modal per pcs</label><input id="f-a" inputmode="decimal" value="${o.amt}"></div></div>
 <label>Jumlah</label><input id="f-q" inputmode="numeric" value="${o.qty}">
+<label>Harga akhir ke konsumen (Rp, opsional)</label><input id="f-final" inputmode="decimal" value="${num(o.finalPrice)>0?o.finalPrice:''}" placeholder="Contoh: 250000">
+<div class="fx">Jika diisi, harga jual memakai angka ini dan <b>markup/untung otomatis = harga akhir − modal</b>. Jika dikosongkan, harga jual tetap dihitung dari markup.</div>
 <label>Markup (untung)</label><div class="two"><select id="f-mt"><option value="pct" ${o.mt!=='idr'?'selected':''}>Persen (%)</option><option value="idr" ${o.mt==='idr'?'selected':''}>Nominal (Rp per pcs)</option></select><input id="f-m" inputmode="decimal" value="${o.markup}" aria-label="Besar markup"></div>
 <label>Foto produk</label><div id="pb"></div>
 <input type="file" id="p-cam" accept="image/*" capture="environment" hidden><input type="file" id="p-gal" accept="image/*" hidden>
@@ -347,10 +350,21 @@ sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 <button class="primary" id="f-ok">${id?'Simpan':'Catat pesanan'}</button>
 <button style="width:100%;margin-top:8px" id="scan">📷 Foto struk (isi otomatis)</button><input type="file" id="f-f" accept="image/*" capture="environment" hidden>
 <div id="sr"></div>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="del">Hapus pesanan</button>':''}`);
-const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]||0,a=num($('#f-a').value)*Math.max(1,num($('#f-q').value))*r,m=num($('#f-m').value),t=$('#f-mt').value,p=Math.ceil((a+(t==='idr'?m*Math.max(1,num($('#f-q').value)):a*m/100))/500)*500;
-$('#pv').innerHTML=a?`Modal ≈ ${idr(a)}<br>Jual ${idr(p)} <span class="fx">(untung ${idr(p-a)})</span>`:'Isi harga dulu, nanti kuhitungin ke rupiah.'};
-['f-u','f-a','f-q','f-m','f-mt'].forEach(i=>$('#'+i).oninput=pv);pv();
+
+const customerOptions=[...$('#f-c').options];
+const filterCustomers=()=>{const q=$('#f-cq').value.trim().toLowerCase();let shown=[];customerOptions.forEach(opt=>{const show=opt.value==='+'||!q||opt.textContent.toLowerCase().includes(q);opt.hidden=!show;if(show&&opt.value!=='+')shown.push(opt)});if(q&&shown.length===1&&shown[0].value!=='+'){$('#f-c').value=shown[0].value;$('#nc').hidden=true}};
+$('#f-cq').oninput=filterCustomers;
+$('#f-c').onchange=()=>{const v=$('#f-c').value;$('#nc').hidden=v!=='+';if(v!=='+'){const c=S.customers.find(x=>x.id===v);if(c)$('#f-cq').value=c.name}};
+filterCustomers();
+
+const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]||0,qty=Math.max(1,num($('#f-q').value)),a=num($('#f-a').value)*qty*r,final=num($('#f-final').value),m=num($('#f-m').value),t=$('#f-mt').value;
+let p,profit;
+if(final>0){p=Math.round(final);profit=p-a;$('#f-m').disabled=true;$('#f-mt').disabled=true;}
+else{const raw=a+(t==='idr'?m*qty:a*m/100);p=Math.ceil(raw/500)*500;profit=p-a;$('#f-m').disabled=false;$('#f-mt').disabled=false;}
+$('#pv').innerHTML=a?`Modal ≈ ${idr(a)}<br>Harga akhir ${idr(p)} <span class="fx">(untung ${idr(profit)})</span>${final>0?'<br><b>Markup otomatis mengikuti harga akhir.</b>':''}`:'Isi harga modal dulu, nanti kuhitungin ke rupiah.'};
+['f-u','f-a','f-q','f-m','f-mt','f-final'].forEach(i=>$('#'+i).oninput=pv);pv();
 $('#f-mt').onchange=()=>{const i=$('#f-m'),n=num(i.value),t=$('#f-mt').value;if(t==='idr'&&n<1000)i.value='';if(t==='pct'&&n>100)i.value=S.trip.mt==='pct'?S.trip.markup:15;pv()};
+$('#f-final').oninput=pv;
 const paint=()=>{$('#pb').innerHTML=photo?`<img class="big" src="${photo}" alt="Foto produk"><button id="pr" style="width:100%;margin-top:6px">Hapus foto</button>`:'<div class="two"><button id="pc">📷 Kamera</button><button id="pg">🖼 Galeri</button></div>';
 if(photo)$('#pr').onclick=()=>{photo='';paint()};else{$('#pc').onclick=()=>$('#p-cam').click();$('#pg').onclick=()=>$('#p-gal').click()}};
 const pick=async ev=>{const f=ev.target.files[0];if(!f)return;try{photo=await shrink(f);paint()}catch(x){toast('Fotonya nggak bisa dibuka, coba foto lain ya',3000)}};
@@ -359,13 +373,15 @@ $('#f-c').onchange=()=>{$('#nc').hidden=$('#f-c').value!=='+'};$('#nc').hidden=$
 $('#f-ok').onclick=async()=>{let cid=$('#f-c').value;
 if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelanggannya dulu ya',2500);cid=uid();S.customers.push({id:cid,name:n,wa:$('#f-nw').value.trim(),notes:''})}
 if(!cid)return toast('Pilih pelanggan dulu ya',2500);
-const item=$('#f-i').value.trim(),amt=num($('#f-a').value);if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
+const item=$('#f-i').value.trim(),amt=num($('#f-a').value),qty=Math.max(1,Math.round(num($('#f-q').value))||1),finalPrice=Math.round(num($('#f-final').value));if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
 const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diisi',2500);
+const modalTotal=amt*qty*S.rates[cur];if(finalPrice>0&&finalPrice<modalTotal)return toast('Harga akhir tidak boleh lebih kecil dari modal '+idr(modalTotal),3500);
 const orderId=id||uid(),old=S.orders.find(z=>z.id===id),oldPhoto=old?.photo||'',oldPath=old?.photoPath||'',newPhotoIsData=typeof photo==='string'&&photo.startsWith('data:image/');
-const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo:newPhotoIsData?'':photo,photoPath:newPhotoIsData?(oldPath||''):photo?oldPath:'',pm:$('#f-pm').value};
+const autoMarkup=finalPrice>0?Math.max(0,(finalPrice-modalTotal)/qty):num($('#f-m').value);
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,photo:newPhotoIsData?'':photo,photoPath:newPhotoIsData?(oldPath||''):photo?oldPath:'',pm:$('#f-pm').value};
 if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
 else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
-S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();
+S.trip.cur=cur;if(!finalPrice){S.trip.markup=d.markup;S.trip.mt=d.mt}save();close();render();
 if(newPhotoIsData){toast('Pesanan tersimpan. Mengunggah foto…',4000);try{const r=await uploadPhoto(orderId,photo);const x=S.orders.find(z=>z.id===orderId);if(x){x.photo=r.url;x.photoPath=r.path;save();render();toast('Foto tersimpan di Firebase Storage ✔',2500)}}catch(err){console.error(err);toast('Pesanan tersimpan, tapi foto gagal diunggah. Coba edit pesanan lalu pilih foto lagi.',6000)}}
 else if(old&&oldPhoto&&!photo){await deletePhoto(oldPath);if(old){old.photoPath='';save()}}
 else toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
@@ -469,10 +485,11 @@ document.addEventListener('touchmove',ev=>{if(ev.touches.length>1)ev.preventDefa
 async function backup(){const b=new Blob([JSON.stringify(S)],{type:'application/json'}),fn='jastip-cadangan.json';
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 function shrink(f){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const i=new Image();i.onerror=rej;i.onload=()=>{const k=Math.min(1,640/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};i.src=r.result};r.readAsDataURL(f)})}
-function custSheet(id){const c=S.customers.find(x=>x.id===id)||{name:'',wa:'',notes:''};
+function custSheet(id){const c=S.customers.find(x=>x.id===id)||{name:'',wa:'',address:''};
+const address=c.address||c.notes||'';
 sheet(`<h1>${id?'Ubah pelanggan':'Pelanggan baru'}</h1><label>Nama</label><input id="c-n" value="${e(c.name)}" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="c-w" inputmode="tel" value="${e(c.wa)}" placeholder="0812…">
-<label>Catatan (barang favorit, cara antar)</label><textarea id="c-t" rows="3">${e(c.notes)}</textarea><button class="primary" id="c-ok">Simpan</button>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="c-del">Hapus pelanggan</button>':''}`);
-$('#c-ok').onclick=()=>{const n=$('#c-n').value.trim();if(!n)return toast('Nama wajib diisi',2500);const d={name:n,wa:$('#c-w').value.trim(),notes:$('#c-t').value.trim()};
+<label>Alamat pelanggan</label><textarea id="c-t" rows="3" placeholder="Masukkan alamat lengkap pelanggan">${e(address)}</textarea><button class="primary" id="c-ok">Simpan</button>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="c-del">Hapus pelanggan</button>':''}`);
+$('#c-ok').onclick=()=>{const n=$('#c-n').value.trim();if(!n)return toast('Nama wajib diisi',2500);const d={name:n,wa:$('#c-w').value.trim(),address:$('#c-t').value.trim()};
 id?Object.assign(c,d):S.customers.push({id:uid(),...d});save();close();render()};
 if(id)$('#c-del').onclick=()=>{const b=$('#c-del');if(S.orders.some(o=>o.cid===id))return b.textContent='Masih punya pesanan, hapus pesanannya dulu';if(!b.dataset.cf){b.dataset.cf=1;return b.textContent='Yakin hapus? Ketuk lagi'}S.customers=S.customers.filter(x=>x.id!==id);save();close();render()}}
 
