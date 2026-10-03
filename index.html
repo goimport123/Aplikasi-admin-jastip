@@ -21,17 +21,6 @@ main{padding:0 14px;max-width:560px;margin:0 auto}
 .chip{flex:none;min-height:36px;padding:0 12px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:10px 0}
-.order-card{padding:8px 10px;margin:6px 0;border-radius:13px}
-.order-card .row{gap:7px}
-.order-card .who{font-size:13px}
-.order-card .item{font-size:14px;line-height:1.25}
-.order-card .fx{font-size:11px;line-height:1.3}
-.order-card .price{font-size:14px}
-.order-card .thumb{width:44px;height:44px;border-radius:8px}
-.order-card .steps{gap:3px;margin:6px 0 5px}
-.order-card .steps button{min-height:25px;font-size:9px;border-radius:7px}
-.order-card .acts{gap:5px}
-.order-card .acts button,.order-card .acts .wa{min-height:34px;padding:0 9px;border-radius:9px;font-size:12px}
 .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .who{font-weight:800}.item{font-size:16px;font-weight:600}
 .price{font-weight:800;font-size:17px;text-align:right}
@@ -73,9 +62,8 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
 </head><body>
-<header><div><h1 id="tn"></h1><div class="sub" id="ts"></div><div class="fx" id="cs">☁ Menghubungkan…</div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
+<header><div><h1 id="tn"></h1><div class="sub" id="ts"></div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
 <main id="m"></main>
 <button class="fab" id="fab">+ Pesanan</button>
 <nav class="nav"><button data-t="q">Pesanan</button><button data-t="p">Packing</button><button data-t="c">Daftar pembeli</button><button data-t="d">Trip</button></nav>
@@ -93,165 +81,91 @@ const firebaseConfig={
   appId:"1:652391383919:web:1e91cd54623cab61cc9e9a"
 };
 firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore(), auth=firebase.auth(), storage=firebase.storage();
-try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
+const db=firebase.firestore(), auth=firebase.auth();
 
 const K='jastip-v1';
 const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',kp:[],trips:[],tripId:'',view:'cur'});
 let S=def();
-let localPending=false;
-function loadCache(){
-  try{
-    const x=JSON.parse(localStorage.getItem(K)||'null');
-    if(x)S=Object.assign(def(),x);
-    localPending=localStorage.getItem(K+'-pending')==='1';
-  }catch(e){}
-}
+function loadCache(){try{const x=JSON.parse(localStorage.getItem(K)||'null');if(x)S=Object.assign(def(),x)}catch(e){}}
 loadCache();
-let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null,cloudDirty=false,cloudState='connecting',cloudStarted=false;
+const localBackup=JSON.parse(JSON.stringify(S));
+let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null;
 let initialCloud={customers:false,orders:false,trips:false,ships:false,meta:false};
-const cloudShadow={customers:{},orders:{},trips:{},ships:{},meta:''};
+let cloudIds={customers:new Set(),orders:new Set(),trips:new Set(),ships:new Set()};
 
-function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOString():v)}
-function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,
-  pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1}}
-function metaData(){return {...metaPlain(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
-function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Firebase tersambung':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Firebase bermasalah':'☁ Menghubungkan…'}
-function cacheSave(){
-  try{
-    localStorage.setItem(K,JSON.stringify(S));
-    if(localPending)localStorage.setItem(K+'-pending','1');
-  }catch(e){}
+function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+
+function metaData(){
+  return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,
+    pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
 }
 
 function save(){
-  localPending=true;
   cacheSave();
-  if(!cloudReady){cloudDirty=true;return}
-  if(cloudWriting){cloudDirty=true;return}
+  if(!cloudReady||cloudWriting)return;
   clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,250);
 }
 
-function currentDocs(){
-  const docs={customers:{},orders:{},trips:{},ships:{},meta:metaPlain()};
-  S.customers.forEach(x=>docs.customers[x.id]=x);
-  S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));
-  S.trips.forEach(x=>docs.trips[x.id]=x);
-  Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=x);
-  return docs;
-}
-function cloudOrder(o){const x={...o};if(typeof x.photo==='string'&&x.photo.startsWith('data:'))x.photo='';return x}
-
 async function syncCloud(){
   if(!cloudReady||cloudWriting)return;
-  cloudWriting=true;cloudDirty=false;setCloudState('saving');
+  cloudWriting=true;
   try{
-    const docs=currentDocs(),ops=[];
-    for(const col of ['customers','orders','trips','ships']){
-      const now=docs[col],old=cloudShadow[col];
-      for(const [id,data] of Object.entries(now)){
-        const sig=stable(data);
-        if(old[id]!==sig)ops.push({type:'set',col,id,data,sig});
-      }
-      for(const id of Object.keys(old)){
-        if(!(id in now))ops.push({type:'delete',col,id});
-      }
-    }
-    const metaSig=stable(docs.meta);
-    if(cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig});
-    if(ops){
-      for(let i=0;i<ops.length;i+=450){
-        const batch=db.batch(),chunk=ops.slice(i,i+450);
-        chunk.forEach(op=>{
-          if(op.type==='set')batch.set(db.collection(op.col).doc(op.id),op.data);
-          else if(op.type==='delete')batch.delete(db.collection(op.col).doc(op.id));
-          else batch.set(db.collection('settings').doc('app'),metaData(),{merge:true});
-        });
-        await batch.commit();
-        chunk.forEach(op=>{
-          if(op.type==='set')cloudShadow[op.col][op.id]=op.sig;
-          else if(op.type==='delete')delete cloudShadow[op.col][op.id];
-          else cloudShadow.meta=op.sig;
-        });
-      }
-    }
-    localPending=false;
-    try{localStorage.setItem(K+'-pending','0')}catch(e){}
-    setCloudState('online');
+    const batch=db.batch();
+    const wanted={customers:new Set(),orders:new Set(),trips:new Set(),ships:new Set()};
+    S.customers.forEach(x=>{wanted.customers.add(x.id);batch.set(db.collection('customers').doc(x.id),x)});
+    S.orders.forEach(x=>{wanted.orders.add(x.id);batch.set(db.collection('orders').doc(x.id),x)});
+    S.trips.forEach(x=>{wanted.trips.add(x.id);batch.set(db.collection('trips').doc(x.id),x)});
+    Object.entries(S.ships||{}).forEach(([id,x])=>{wanted.ships.add(id);batch.set(db.collection('ships').doc(id),x)});
+    Object.entries(cloudIds).forEach(([col,ids])=>ids.forEach(id=>{if(!wanted[col].has(id))batch.delete(db.collection(col).doc(id))}));
+    batch.set(db.collection('settings').doc('app'),metaData(),{merge:true});
+    await batch.commit();
+    cloudIds={customers:new Set(S.customers.map(x=>x.id)),orders:new Set(S.orders.map(x=>x.id)),
+      trips:new Set(S.trips.map(x=>x.id)),ships:new Set(Object.keys(S.ships||{}))};
   }catch(err){
-    console.error(err);cloudDirty=true;setCloudState('error');toast('Gagal menyimpan ke Firebase. Data tetap tersimpan di perangkat; coba lagi saat koneksi pulih.',6000);
-  }finally{
-    cloudWriting=false;
-    if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,300)}
-  }
+    console.error(err);toast('Gagal menyimpan ke Firebase. Cek koneksi & Firestore Rules.',5000);
+  }finally{cloudWriting=false}
 }
+
 function applyMeta(snap){
   if(!snap.exists)return;
   const x=snap.data()||{};
   if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;
   ['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]});
 }
-function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>cloudShadow[col][d.id]=stable(cloudOrder(d.data())));}
-function cloudError(err){console.error(err);setCloudState('error');toast('Firebase belum tersambung. Cek Anonymous Authentication, Firestore Rules, Storage Rules, dan koneksi internet.',7000)}
 
-async function photoBlob(dataUrl){return await (await fetch(dataUrl)).blob()}
-async function uploadPhoto(orderId,dataUrl){
-  const ref=storage.ref().child('orders/'+orderId+'/photo.jpg');
-  await ref.put(await photoBlob(dataUrl),{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});
-  return {url:await ref.getDownloadURL(),path:ref.fullPath};
-}
-async function deletePhoto(path){if(!path)return;try{await storage.ref(path).delete()}catch(e){if(e&&e.code!=='storage/object-not-found')console.warn(e)}}
-async function migrateLegacyPhotos(){
-  const legacy=S.orders.filter(o=>typeof o.photo==='string'&&o.photo.startsWith('data:'));
-  if(!legacy.length)return;
-  setCloudState('saving');
-  for(const o of legacy){
-    try{const r=await uploadPhoto(o.id,o.photo);o.photo=r.url;o.photoPath=r.path;cacheSave();}
-    catch(e){console.error(e);toast('Ada foto lama yang belum berhasil dipindahkan ke Storage.',5000)}
-  }
+function cloudError(err){
+  console.error(err);
+  toast('Firebase belum tersambung. Cek Firestore Rules dan koneksi internet.',7000);
 }
 
-async function cloudTick(){
+function cloudTick(){
   if(!Object.values(initialCloud).every(Boolean))return;
   if(!cloudBooted){
     cloudBooted=true;
-
-    // Jika sesi sebelumnya ditutup sebelum Firebase selesai menyimpan,
-    // cache lokal berisi perubahan terbaru. Jangan biarkan snapshot cloud
-    // yang masih lama menimpa perubahan tersebut.
-    if(localPending){
-      loadCache();
-      toast('Memulihkan perubahan terakhir dari perangkat…',3000);
-    }else{
-      const cloudEmpty=!S.customers.length&&!S.orders.length&&!S.trips.length&&!Object.keys(S.ships||{}).length;
-      if(cloudEmpty){
-        // Tidak ada data di cloud: pertahankan cache lokal bila ada.
-        loadCache();
-      }
-    }
-
+    const cloudEmpty=!S.customers.length&&!S.orders.length&&!S.trips.length&&!Object.keys(S.ships||{}).length;
+    const localHadData=localBackup.customers.length||localBackup.orders.length||localBackup.trips.length||Object.keys(localBackup.ships||{}).length;
+    if(cloudEmpty&&localHadData){S=Object.assign(def(),localBackup)}
     ensureTrip();
     S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
     if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
-    await migrateLegacyPhotos();
-    cloudReady=true;cloudDirty=true;await syncCloud();
+    cloudReady=true;
+    syncCloud();
   }
-  cacheSave();render();
+  render();
 }
 
 function startCloud(){
-  if(cloudStarted)return;cloudStarted=true;
-  db.collection('customers').onSnapshot(s=>{initialCloud.customers=true;S.customers=s.docs.map(d=>d.data());shadowCollection('customers',s);cloudTick()},cloudError);
-  db.collection('orders').onSnapshot(s=>{initialCloud.orders=true;S.orders=s.docs.map(d=>d.data());shadowCollection('orders',s);cloudTick()},cloudError);
-  db.collection('trips').onSnapshot(s=>{initialCloud.trips=true;S.trips=s.docs.map(d=>d.data());shadowCollection('trips',s);cloudTick()},cloudError);
-  db.collection('ships').onSnapshot(s=>{initialCloud.ships=true;S.ships={};s.forEach(d=>S.ships[d.id]=d.data());shadowCollection('ships',s);cloudTick()},cloudError);
-  db.collection('settings').doc('app').onSnapshot(s=>{initialCloud.meta=true;applyMeta(s);cloudShadow.meta=s.exists?stable(metaPlain()):'';cloudTick()},cloudError);
+  db.collection('customers').onSnapshot(s=>{initialCloud.customers=true;S.customers=s.docs.map(d=>d.data());cloudIds.customers=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('orders').onSnapshot(s=>{initialCloud.orders=true;S.orders=s.docs.map(d=>d.data());cloudIds.orders=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('trips').onSnapshot(s=>{initialCloud.trips=true;S.trips=s.docs.map(d=>d.data());cloudIds.trips=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('ships').onSnapshot(s=>{initialCloud.ships=true;S.ships={};s.forEach(d=>S.ships[d.id]=d.data());cloudIds.ships=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('settings').doc('app').onSnapshot(s=>{initialCloud.meta=true;applyMeta(s);cloudTick()},cloudError);
 }
 
-auth.onAuthStateChanged(user=>{
-  if(user){setCloudState('connecting');startCloud()}
+auth.signInAnonymously().then(startCloud).catch(err=>{
+  console.error(err);toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render();
 });
-auth.signInAnonymously().catch(err=>{console.error(err);setCloudState('error');toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render()});
 
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -305,7 +219,7 @@ let h=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="ch
 const q=(S.q||'').toLowerCase();const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q))).sort((a,b)=>b.ts-a.ts);
 if(!L.length)return h+`<div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div>`;
 return h+L.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
-return `<div class="card order-card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
+return `<div class="card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
 <div class="fx">${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
 <div><div class="price">${idr(sell(o))}</div><div style="text-align:right">${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:32px;padding:0 10px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sebagian · sisa '+rb(sisa(o)):'Belum bayar'}</button>`:''}</div></div></div>
 <div class="steps">${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}">${t}</button>`).join('')}</div>
@@ -385,19 +299,15 @@ if(photo)$('#pr').onclick=()=>{photo='';paint()};else{$('#pc').onclick=()=>$('#p
 const pick=async ev=>{const f=ev.target.files[0];if(!f)return;try{photo=await shrink(f);paint()}catch(x){toast('Fotonya nggak bisa dibuka, coba foto lain ya',3000)}};
 $('#p-cam').onchange=pick;$('#p-gal').onchange=pick;paint();
 $('#f-c').onchange=()=>{$('#nc').hidden=$('#f-c').value!=='+'};$('#nc').hidden=$('#f-c').value!=='+';
-$('#f-ok').onclick=async()=>{let cid=$('#f-c').value;
+$('#f-ok').onclick=()=>{let cid=$('#f-c').value;
 if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelanggannya dulu ya',2500);cid=uid();S.customers.push({id:cid,name:n,wa:$('#f-nw').value.trim(),notes:''})}
 if(!cid)return toast('Pilih pelanggan dulu ya',2500);
 const item=$('#f-i').value.trim(),amt=num($('#f-a').value);if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
 const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diisi',2500);
-const orderId=id||uid(),old=S.orders.find(z=>z.id===id),oldPhoto=old?.photo||'',oldPath=old?.photoPath||'',newPhotoIsData=typeof photo==='string'&&photo.startsWith('data:image/');
-const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo:newPhotoIsData?'':photo,photoPath:newPhotoIsData?(oldPath||''):photo?oldPath:'',pm:$('#f-pm').value};
-if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
-else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
-S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();
-if(newPhotoIsData){toast('Pesanan tersimpan. Mengunggah foto…',4000);try{const r=await uploadPhoto(orderId,photo);const x=S.orders.find(z=>z.id===orderId);if(x){x.photo=r.url;x.photoPath=r.path;save();render();toast('Foto tersimpan di Firebase Storage ✔',2500)}}catch(err){console.error(err);toast('Pesanan tersimpan, tapi foto gagal diunggah. Coba edit pesanan lalu pilih foto lagi.',6000)}}
-else if(old&&oldPhoto&&!photo){await deletePhoto(oldPath);if(old){old.photoPath='';save()}}
-else toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo,pm:$('#f-pm').value};
+if(id){const x=S.orders.find(z=>z.id===id);if(x.cur!==cur||x.amt!==amt&&false)d.rate=S.rates[cur];Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
+else{S.orders.push({...d,id:uid(),rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
+S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
 if(id){$('#del').onclick=()=>{if($('#del').dataset.cf){S.orders=S.orders.filter(x=>x.id!==id);save();close();render()}else{$('#del').dataset.cf=1;$('#del').textContent='Yakin hapus? Ketuk lagi'}}}
 $('#scan').onclick=()=>$('#f-f').click();
 $('#f-f').onchange=async ev=>{
@@ -431,7 +341,7 @@ function histTrips(){const cl=S.trips.filter(t=>t.closedAt);if(!cl.length)return
 return '<h2>Trip yang sudah ditutup</h2>'+cl.slice().reverse().map(t=>{const os=S.orders.filter(o=>o.tripId===t.id),x=stat(os),rs=[...new Set(os.map(o=>o.resi).filter(Boolean))],open=rs.filter(r=>(S.ships[r]||{}).st!==3).length,pend=os.filter(o=>o.status<5).length;
 return `<div class="card"><div class="row"><div class="who">${e(t.name)}</div><span class="fx">ditutup ${new Date(t.closedAt).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})}</span></div>
 <div class="fx">${os.length} pesanan · omzet ${rb(x.rev)} · untung ${rb(x.m)}<br>Belum dibayar ${rb(x.out)} · belum Done ${pend} pesanan · kargo masih jalan ${open} resi</div>
-<div class="acts" style="margin-top:10px"><button class="go" data-tv="${t.id}">Buka trip</button><button data-dtrip="${t.id}" style="color:var(--hi)">Hapus</button></div></div>`}).join('')}
+<div class="acts" style="margin-top:10px"><button class="go" data-tv="${t.id}">Buka trip</button></div></div>`}).join('')}
 function vKp(L){const todo=L.filter(o=>!o.packed),done=L.length-todo.length,pc=L.length?Math.round(done/L.length*100):0;
 S.kp=S.kp.filter(id=>todo.some(o=>o.id===id));
 let h=`<div class="hero"><span style="opacity:.75">Progress koper</span><b>${done} / ${L.length} barang (${pc}%)</b><div class="bar"><i style="width:${pc}%;background:var(--sun)"></i></div></div>`;
@@ -505,52 +415,6 @@ $('#c-ok').onclick=()=>{const n=$('#c-n').value.trim();if(!n)return toast('Nama 
 id?Object.assign(c,d):S.customers.push({id:uid(),...d});save();close();render()};
 if(id)$('#c-del').onclick=()=>{const b=$('#c-del');if(S.orders.some(o=>o.cid===id))return b.textContent='Masih punya pesanan, hapus pesanannya dulu';if(!b.dataset.cf){b.dataset.cf=1;return b.textContent='Yakin hapus? Ketuk lagi'}S.customers=S.customers.filter(x=>x.id!==id);save();close();render()}}
 
-async function deleteTrip(id){
-const t=S.trips.find(x=>x.id===id);
-if(!t)return;
-if(!t.closedAt){toast('Trip aktif tidak bisa dihapus. Tutup trip dulu.',3500);return}
-const os=S.orders.filter(o=>o.tripId===id);
-const resis=[...new Set(os.map(o=>o.resi).filter(Boolean))];
-if(!confirm(`Hapus trip "${t.name}" beserta ${os.length} pesanan di dalamnya? Data ini tidak bisa dikembalikan kecuali dari file cadangan.`))return;
-
-toast('Menghapus trip…',5000);
-
-// Hapus foto lama dari Firebase Storage bila ada. Kegagalan Storage tidak
-// menghentikan penghapusan data Firestore agar trip tetap bisa dibersihkan.
-let photoFail=0;
-for(const o of os){
-  if(o.photoPath){
-    try{await deletePhoto(o.photoPath)}catch(err){photoFail++;console.warn('Gagal menghapus foto',o.id,err)}
-  }
-}
-
-// Hapus trip dan seluruh pesanan trip dari data lokal.
-// Customer sengaja tidak dihapus karena bisa dipakai trip lain.
-S.orders=S.orders.filter(o=>o.tripId!==id);
-S.trips=S.trips.filter(x=>x.id!==id);
-
-// Resi yang tidak lagi dipakai oleh pesanan mana pun ikut dibersihkan.
-for(const r of resis){
-  if(!S.orders.some(o=>o.resi===r))delete S.ships[r];
-}
-
-// Pastikan selalu ada trip aktif.
-if(!S.trips.length){
-  const nid=uid();
-  S.trips=[{id:nid,name:'Trip baru',ts:Date.now()}];
-  S.tripId=nid;
-  S.trip={name:'Trip baru',markup:15,cur:'JPY',mt:'pct'};
-}else if(!S.trips.some(x=>x.id===S.tripId)){
-  const active=S.trips.find(x=>!x.closedAt)||S.trips[S.trips.length-1];
-  S.tripId=active.id;
-  S.trip={...S.trip,name:active.name};
-}
-S.view='cur';S.filter=-1;S.tab='d';
-save();render();
-
-toast(photoFail?`Trip dihapus. ${photoFail} foto gagal ikut dihapus dari Storage.`:'Trip dan semua pesanannya berhasil dihapus ✔',4500);
-}
-
 function tripSheet(){sheet(`<h1>Atur trip</h1><label>Nama trip</label><input id="t-n" value="${e(S.trip.name)}" placeholder="mis. Osaka Oktober">
 <label>Markup standar</label><div class="two"><select id="t-mt"><option value="pct" ${S.trip.mt!=='idr'?'selected':''}>Persen (%)</option><option value="idr" ${S.trip.mt==='idr'?'selected':''}>Nominal (Rp per pcs)</option></select><input id="t-m" inputmode="decimal" value="${S.trip.markup}" aria-label="Besar markup standar"></div><button class="primary" id="t-ok">Simpan</button>`);
 $('#t-ok').onclick=()=>{S.trip.name=$('#t-n').value.trim()||'Trip baru';{const ct=S.trips.find(x=>x.id===S.tripId);if(ct)ct.name=S.trip.name}S.trip.markup=num($('#t-m').value);S.trip.mt=$('#t-mt').value;save();close();render()}}
@@ -559,8 +423,7 @@ document.addEventListener('click',ev=>{const z=ev.target.closest('[data-z]');if(
 const t=ev.target.closest('button');if(!t)return;const d=t.dataset;
 if(t.id==='zc')return close();
 if(d.t){S.tab=d.t;save();render()}else if(d.f){S.filter=+d.f;render()}
-else if(d.s){const[i,n]=d.s.split(':');reqStatus(i,+n)}else if(d.pay)paySheet(d.pay);else if(d.pk){S.pk=d.pk;save();render()}else if(d.shipdone){S.ships[d.shipdone].st=3;save();render()}else if(d.tv){S.view=d.tv;S.filter=-1;S.tab='q';save();render()}else if(d.dtrip){deleteTrip(d.dtrip)}
-else if(d.kpall){const td=S.orders.filter(o=>bought(o)&&(o.pm||'kargo')==='koper'&&!o.resi&&!o.packed).map(o=>o.id);S.kp=S.kp.length===td.length?[]:td;render()}else if(d.kpok){S.orders.forEach(o=>{if(S.kp.includes(o.id))o.packed=true});S.kp=[];save();render()}else if(d.kpundo){S.orders.find(x=>x.id===d.kpundo).packed=false;save();render()}else if(d.ship!==undefined)shipSheet(d.ship||null);else if(d.pdf)savePdf(d.pdf);else if(d.imp){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Ini menimpa data sekarang. Ketuk lagi untuk pilih file';return}$('#imp').click()}else if(d.eo)orderSheet(d.eo);else if(d.ec!==undefined)custSheet(d.ec);
+else if(d.s){const[i,n]=d.s.split(':');reqStatus(i,+n)}else if(d.pay)paySheet(d.pay);else if(d.pk){S.pk=d.pk;save();render()}else if(d.shipdone){S.ships[d.shipdone].st=3;save();render()}else if(d.tv){S.view=d.tv;S.filter=-1;S.tab='q';save();render()}else if(d.kpall){const td=S.orders.filter(o=>bought(o)&&(o.pm||'kargo')==='koper'&&!o.resi&&!o.packed).map(o=>o.id);S.kp=S.kp.length===td.length?[]:td;render()}else if(d.kpok){S.orders.forEach(o=>{if(S.kp.includes(o.id))o.packed=true});S.kp=[];save();render()}else if(d.kpundo){S.orders.find(x=>x.id===d.kpundo).packed=false;save();render()}else if(d.ship!==undefined)shipSheet(d.ship||null);else if(d.pdf)savePdf(d.pdf);else if(d.imp){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Ini menimpa data sekarang. Ketuk lagi untuk pilih file';return}$('#imp').click()}else if(d.eo)orderSheet(d.eo);else if(d.ec!==undefined)custSheet(d.ec);
 else if(t.id==='fab')orderSheet();else if(t.id==='gear')tripSheet();
 else if(t.id==='bak')backup()
 else if(t.id==='newtrip'){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Yakin cutoff? Pesanan lama tetap tersimpan. Ketuk lagi';return}
