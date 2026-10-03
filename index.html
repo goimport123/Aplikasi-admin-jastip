@@ -21,7 +21,7 @@ main{padding:0 14px;max-width:560px;margin:0 auto}
 .chip{flex:none;min-height:36px;padding:0 12px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:10px 0}
-.orders-list{padding-bottom:8px}.order-group{margin:8px 0 12px}.order-group-title{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;background:var(--bg);padding:7px 4px;font-size:13px;font-weight:800;color:var(--ink);border-bottom:1px solid var(--line)}.order-card{padding:5px 7px;margin:4px 0;border-radius:10px}.order-card .thumb{width:40px;height:40px}.order-card .price{font-size:14px}.order-card .steps{gap:3px;margin-top:5px}.order-card .steps button{min-height:27px;padding:0 5px;font-size:9px;border-radius:8px}.order-card .acts{gap:4px;margin-top:5px}.order-card .acts button,.order-card .acts .wa{min-height:31px;padding:0 9px;font-size:11px}
+.orders-list{padding-bottom:8px}.order-card{padding:5px 7px;margin:4px 0;border-radius:10px}.order-card .thumb{width:40px;height:40px}.order-card .price{font-size:14px}.order-card .steps{gap:3px;margin-top:5px}.order-card .steps button{min-height:27px;padding:0 5px;font-size:9px;border-radius:8px}.order-card .acts{gap:4px;margin-top:5px}.order-card .acts button,.order-card .acts .wa{min-height:31px;padding:0 9px;font-size:11px}
 .order-card .row{gap:7px}
 .order-card .who{font-size:13px}
 .order-card .item{font-size:14px;line-height:1.25}
@@ -55,7 +55,7 @@ main{padding:0 14px;max-width:560px;margin:0 auto}
 .grid .card{margin:0}.grid b{display:block;font-size:17px}
 .bar{height:6px;border-radius:9px;background:var(--line);margin-top:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--ok)}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:5}
-.sheet{position:relative;background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}.sheet-close{position:absolute;right:10px;top:8px;width:36px;min-width:36px;height:36px;min-height:36px;padding:0;border-radius:99px;background:var(--soft);font-size:22px;line-height:1;font-weight:800;z-index:2}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow:auto;border-radius:20px 20px 0 0;padding:16px 16px calc(20px + env(safe-area-inset-bottom,0px))}
 label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px}
 input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px solid var(--line);background:var(--card);padding:8px 12px;font-size:16px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -99,7 +99,7 @@ try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 const K='jastip-v2';
 const CLIENT_ID=(localStorage.getItem(K+'-client')||('c-'+Math.random().toString(36).slice(2,10))).toString();
 localStorage.setItem(K+'-client',CLIENT_ID);
-const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',cq:'',orderGroup:'date',kp:[],trips:[],tripId:'',view:'cur'});
+const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',cq:'',kp:[],trips:[],tripId:'',view:'cur'});
 let S=def();
 let localPending=false;
 let localEditAt=Number(localStorage.getItem(K+'-edit-at')||0);
@@ -120,40 +120,154 @@ let serverSnapshotReady=false;
 
 function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOString():v)}
 function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1,updatedAtMs:localEditAt||0,clientId:CLIENT_ID}}
-function metaData(ts){return {...metaPlain(),updatedAtMs:ts,clientId:CLIENT_ID}}
-function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Tersimpan & sinkron':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Belum tersimpan':'☁ Menghubungkan…'}
+function metaData(){return {...metaPlain(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
+function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Tersimpan & sinkron':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Firebase bermasalah — data lokal aman':'☁ Menghubungkan…'}
 function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S));localStorage.setItem(K+'-pending',localPending?'1':'0');localStorage.setItem(K+'-pending-ts',String(Date.now()));localStorage.setItem(K+'-edit-at',String(localEditAt||0))}catch(e){toast('Penyimpanan HP gagal. Browser ini mungkin memblokir localStorage.',7000)}}
 function cacheBaseSave(){try{localStorage.setItem(K+'-base',JSON.stringify(localBase))}catch(e){}}
 function cacheBaseLoad(){try{return JSON.parse(localStorage.getItem(K+'-base')||'null')}catch(e){return null}}
-function cloudOrder(x){const y={...(x||{})};delete y._updatedAtMs;delete y._clientId;return y}
+
 function liveDocs(){const docs={customers:{},orders:{},trips:{},ships:{}};S.customers.forEach(x=>docs.customers[x.id]=cloudOrder(x));S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=cloudOrder(x));Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=cloudOrder(x));return docs}
-function markLocalChanges(now){const docs=liveDocs();for(const col of Object.keys(docs)){for(const [id,data] of Object.entries(docs[col])){const before=localBase[col][id];if(!before||stable(before)!==stable(data))data._updatedAtMs=now;else if(before._updatedAtMs!=null)data._updatedAtMs=before._updatedAtMs;data._clientId=CLIENT_ID}}return docs}
-function buildOps(){const docs=markLocalChanges(localEditAt||Date.now()),ops=[];for(const col of ['customers','orders','trips','ships']){const now=docs[col],base=localBase[col];for(const [id,data] of Object.entries(now)){const sig=stable(data);if(cloudShadow[col][id]!==sig)ops.push({type:'set',col,id,data,sig,ts:Number(data._updatedAtMs||localEditAt||Date.now())})}for(const id of Object.keys(base))if(!(id in now)){const ts=localEditAt||Date.now();const tomb={_deleted:true,_updatedAtMs:ts,_clientId:CLIENT_ID};ops.push({type:'set',col,id,data:tomb,sig:stable(tomb),ts})}}
-const metaSig=stable(metaPlain());if(localBase.meta!==metaSig||cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig,ts:localEditAt||Date.now()});return ops}
-function sortCustomers(){S.customers.sort((a,b)=>String(a.name||'').trim().localeCompare(String(b.name||'').trim(),'id',{sensitivity:'base',numeric:true}))}
-function save(){sortCustomers();localEditAt=Date.now();localPending=true;cacheSave();cloudDirty=true;if(!cloudReady||cloudWriting)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,60)}
-async function syncCloud(){if(!cloudReady||cloudWriting||!serverSnapshotReady)return;cloudWriting=true;cloudDirty=false;setCloudState('saving');try{const ops=buildOps();for(const op of ops){if(op.type==='meta'){await db.runTransaction(async tx=>{const ref=db.collection('settings').doc('app');const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote.updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...metaData(op.ts),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})})}else{await db.runTransaction(async tx=>{const ref=db.collection(op.col).doc(op.id);const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote._updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...op.data,_updatedAtMs:op.ts,_clientId:CLIENT_ID})})}}
-localPending=false;cloudDirty=false;localStorage.setItem(K+'-pending','0');localStorage.setItem(K+'-last-cloud-save',String(Date.now()));setCloudState('online');
-}catch(err){console.error('syncCloud',err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');toast('Belum tersimpan ke server. Data tetap aman di HP dan akan dicoba ulang.',6000)}finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,1200)}}}
-function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>{const x=d.data()||{};cloudShadow[col][d.id]=stable(x)})}
-function cloudObjects(col){const out=[];Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(x&&!x._deleted){delete x._updatedAtMs;delete x._clientId;out.push(x)}}catch(e){}});return out}
-function rawCloudRecords(col){const out={};Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(x)out[id]=x}catch(e){}});return out}
-function rawCloudObjects(col){const out={};Object.entries(rawCloudRecords(col)).forEach(([id,x])=>{if(x&&!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out[id]=y}});return out}
-function snapshotObjects(snap){const out=[];if(!snap)return out;snap.forEach(d=>{const x=d.data()||{};if(!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out.push(y)}});return out}
-function snapshotMap(snap){const out={};if(!snap)return out;snap.forEach(d=>{const x=d.data()||{};if(!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out[d.id]=y}});return out}
-function applyMeta(snap){if(!snap||!snap.exists)return;const x=snap.data()||{};cloudMetaCache=x;if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
-function cloudError(err){console.error('Firebase',err);localPending=true;cacheSave();setCloudState('error');const code=err&&err.code?` (${err.code})`:'';toast('Firebase gagal tersambung/menyimpan'+code+'. Cek koneksi dan Anonymous Authentication.',8000)}
-function stripCloud(x){if(!x)return null;const y={...x};delete y._updatedAtMs;delete y._clientId;delete y._deleted;return y}
-function mergePendingWithServer(){const previous=cacheBaseLoad();if(!previous)return false;const current=liveDocs(),merged={customers:{},orders:{},trips:{},ships:{}};for(const col of Object.keys(merged)){const server=rawCloudRecords(col);const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server||{})]);ids.forEach(id=>{const old=previous[col]?.[id],loc=current[col]?.[id],srv=server?.[id];const changed=stable(old||null)!==stable(loc||null);if(!changed){if(srv&&!srv._deleted)merged[col][id]=stripCloud(srv);return}const localTs=Number(localEditAt||Date.now()),serverTs=Number(srv?._updatedAtMs||0);if(!srv||localTs>=serverTs){if(loc)merged[col][id]=loc}else if(!srv._deleted){merged[col][id]=stripCloud(srv)}})}S.customers=Object.values(merged.customers);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;const oldMeta=previous.meta||'',localMeta=stable(metaPlain()),serverMeta=cloudMetaCache||{};if(oldMeta!==localMeta){if(Number(localEditAt||Date.now())<Number(serverMeta.updatedAtMs||0)){applyMeta({exists:true,data:()=>serverMeta})}}else if(cloudMetaCache)applyMeta({exists:true,data:()=>cloudMetaCache});return true}
-async function cloudTick(){if(!serverSnapshotReady)return;if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0),hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;if(hasCloudData&&!localPending&&pendingMs<=cloudMs){S.customers=cloudObjects('customers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false}else if(localPending){mergePendingWithServer();toast('Menggabungkan perubahan HP dengan data server terbaru…',2500)}else{S.customers=cloudObjects('customers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}})}ensureTrip();for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();await migrateLegacyPhotos();cloudReady=true;if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}render()}else if(!localPending){S.customers=snapshotObjects(window.__snapCustomers);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render()}}
-function handleCloudSnapshot(col,s){window['__snap'+col.charAt(0).toUpperCase()+col.slice(1)]=s;if(!s.metadata.fromCache)initialCloud[col]=true;shadowCollection(col,s);serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()}
-function startCloud(){if(cloudStarted)return;cloudStarted=true;db.collection('customers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('customers',s),cloudError);db.collection('orders').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('orders',s),cloudError);db.collection('trips').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('trips',s),cloudError);db.collection('ships').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('ships',s),cloudError);db.collection('settings').doc('app').onSnapshot({includeMetadataChanges:true},s=>{cloudMetaCache=s.exists?s.data():null;if(!s.metadata.fromCache)initialCloud.meta=true;if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()},cloudError)}
-let serverWatchdog=setTimeout(()=>{if(cloudStarted&&!serverSnapshotReady){setCloudState('error');toast('Server Firebase belum memberi respons. Cek koneksi, Firestore Rules, dan Anonymous Authentication. Data tetap tersimpan di HP.',10000)}},15000);
-let authTimeout=setTimeout(()=>{if(!cloudReady&&!cloudStarted){setCloudState('error');toast('Firebase belum terhubung. Cek internet atau aktifkan Anonymous Authentication di Firebase Console.',9000)}},12000);
-auth.onAuthStateChanged(user=>{clearTimeout(authTimeout);if(user){setCloudState('connecting');startCloud()}else{setCloudState('error');toast('Login Firebase tidak aktif. Aktifkan Authentication → Sign-in method → Anonymous.',9000)}});
-auth.signInAnonymously().catch(err=>{console.error('signInAnonymously',err);setCloudState('error');localPending=true;cacheSave();toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render()});
+function markLocalChanges(now){
+  const docs=liveDocs();
+  for(const col of Object.keys(docs)){
+    for(const [id,data] of Object.entries(docs[col])){
+      const before=localBase[col][id];
+      if(!before || stable(before)!==stable(data)) data._updatedAtMs=now;
+      else if(before._updatedAtMs!=null) data._updatedAtMs=before._updatedAtMs;
+    }
+  }
+  return docs;
+}
+function buildOps(){
+  const docs=markLocalChanges(localEditAt||Date.now()),ops=[];
+  for(const col of ['customers','orders','trips','ships']){
+    const now=docs[col],base=localBase[col];
+    for(const [id,data] of Object.entries(now)){
+      const sig=stable(data);
+      if(cloudShadow[col][id]!==sig)ops.push({type:'set',col,id,data,sig,ts:Number(data._updatedAtMs||localEditAt||Date.now())});
+    }
+    // Only create tombstones for records that were present in the last authoritative
+    // local/server baseline and were explicitly removed by this device.
+    for(const id of Object.keys(base)) if(!(id in now)){
+      const ts=localEditAt||Date.now();
+      const tomb={_deleted:true,_updatedAtMs:ts,_clientId:CLIENT_ID};
+      ops.push({type:'set',col,id,data:tomb,sig:stable(tomb),ts});
+    }
+  }
+  const metaSig=stable(metaPlain());
+  if(localBase.meta!==metaSig || cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig,ts:localEditAt||Date.now()});
+  return ops;
+}
+function save(){
+  localEditAt=Date.now();localPending=true;cacheSave();cloudDirty=true;
+  if(!cloudReady||cloudWriting)return;
+  clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,40)
+}
+function currentDocs(){return {...liveDocs(),meta:metaPlain()}}
+
+async function syncCloud(){
+  if(!cloudReady||cloudWriting||!serverSnapshotReady)return;
+  cloudWriting=true;cloudDirty=false;setCloudState('saving');
+  try{
+    const ops=buildOps();
+    for(let i=0;i<ops.length;i+=80){
+      const chunk=ops.slice(i,i+80);
+      for(const op of chunk){
+        if(op.type==='meta'){
+          await db.runTransaction(async tx=>{
+            const ref=db.collection('settings').doc('app');
+            const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote.updatedAtMs||0);
+            if(op.ts>=rts){tx.set(ref,{...metaData(),updatedAtMs:op.ts,clientId:CLIENT_ID},{merge:true})}
+          });
+        }else{
+          await db.runTransaction(async tx=>{
+            const ref=db.collection(op.col).doc(op.id);const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote._updatedAtMs||0);
+            if(op.ts>=rts){
+              tx.set(ref,{...op.data,_updatedAtMs:op.ts,_clientId:CLIENT_ID});
+            }
+          });
+        }
+      }
+    }
+    // Refresh local baseline from the latest server snapshots before declaring the
+    // local write complete. A stale device can no longer erase newer server data.
+    localPending=false;cloudDirty=false;localStorage.setItem(K+'-pending','0');localStorage.setItem(K+'-last-cloud-save',String(Date.now()));cacheBaseSave();setCloudState('online');
+  }catch(err){console.error(err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');toast('Belum tersimpan ke server. Data tetap aman di HP dan akan dicoba ulang otomatis.',5000)}
+  finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,700)}}
+}
+function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>{const x=d.data();if(x&&x._deleted)cloudShadow[col][d.id]=stable(x);else cloudShadow[col][d.id]=stable(cloudOrder(x))})}
+function cloudObjects(col){const out=[];Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(!x._deleted){delete x._updatedAtMs;delete x._clientId;out.push(x)}}catch(e){}});return out}
+function rawCloudObjects(col){const out={};Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(x&&!x._deleted)out[id]=x}catch(e){}});return out}
+function snapshotObjects(snap){const out=[];snap.forEach(d=>{const x=d.data();if(x&&!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out.push(y)}});return out}
+function snapshotMap(snap){const out={};snap.forEach(d=>{const x=d.data();if(x&&!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out[d.id]=y}});return out}
+function applyMeta(snap){if(!snap.exists)return;const x=snap.data()||{};cloudMetaCache=x;if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
+function cloudError(err){console.error(err);setCloudState('error');localPending=true;cacheSave();toast('Firebase gagal tersambung/menyimpan. Data lokal tetap dipertahankan.',7000)}
+
+function mergePendingWithServer(){
+  const previous=cacheBaseLoad();
+  if(!previous)return false;
+  const current=liveDocs(),server=rawCloudObjects;
+  const merged={customers:{},orders:{},trips:{},ships:{}};
+  for(const col of Object.keys(merged)){
+    const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server(col)||{})]);
+    ids.forEach(id=>{
+      const old=previous[col]?.[id], loc=current[col]?.[id], srv=server(col)?.[id];
+      const oldClean=old?{...old}:null, locClean=loc?{...loc}:null, srvClean=srv?{...srv}:null;
+      const changed=stable(oldClean)!==stable(locClean);
+      if(changed) merged[col][id]=locClean;
+      else if(srvClean) merged[col][id]={...srvClean};
+    });
+  }
+  S.customers=Object.values(merged.customers);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;
+  const oldMeta=previous.meta||'', localMeta=stable(metaPlain());
+  if(oldMeta===localMeta && cloudMetaCache) applyMeta({exists:true,data:()=>cloudMetaCache});
+  return true;
+}
+async function cloudTick(){
+  if(!Object.values(initialCloud).every(Boolean)||!serverSnapshotReady)return;
+  if(!cloudBooted){
+    cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
+    const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0);
+    const hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;
+    if(hasCloudData && (!localPending || pendingMs<=cloudMs)){
+      S.customers=cloudObjects('customers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships={};Object.keys(cloudShadow.ships).forEach(id=>{try{const x=JSON.parse(cloudShadow.ships[id]);if(!x._deleted){delete x._updatedAtMs;delete x._clientId;S.ships[id]=x}}catch(e){}});applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false;
+    }else if(localPending){
+      // Device has unsynced local edits: merge only those local changes onto the
+      // newest server snapshot. New records from other devices are preserved.
+      mergePendingWithServer();
+      toast('Menggabungkan perubahan HP dengan data server terbaru…',3000);
+    }
+    ensureTrip();
+    for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());
+    cacheBaseSave();
+    await migrateLegacyPhotos();cloudReady=true;
+    if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}
+  }else if(!localPending){
+    // Real-time server update: merge the authoritative snapshot, not the local cache.
+    S.customers=snapshotObjects(window.__snapCustomers);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});
+    for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render();
+  }
+}
+function handleCloudSnapshot(col,s){
+  window['__snap'+col.charAt(0).toUpperCase()+col.slice(1)]=s;
+  if(!s.metadata.fromCache)initialCloud[col]=true;
+  shadowCollection(col,s);cloudTick();
+}
+function startCloud(){if(cloudStarted)return;cloudStarted=true;
+  db.collection('customers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('customers',s),cloudError);
+  db.collection('orders').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('orders',s),cloudError);
+  db.collection('trips').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('trips',s),cloudError);
+  db.collection('ships').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('ships',s),cloudError);
+  db.collection('settings').doc('app').onSnapshot({includeMetadataChanges:true},s=>{cloudMetaCache=s.exists?s.data():null;if(!s.metadata.fromCache){initialCloud.meta=true;serverSnapshotReady=true}if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';cloudTick()},cloudError)
+}
+auth.onAuthStateChanged(user=>{if(user){setCloudState('connecting');startCloud()}});
+auth.signInAnonymously().catch(err=>{console.error(err);setCloudState('error');localPending=true;cacheSave();const code=err&&err.code?(' ['+err.code+']'):'';toast('Firebase tidak bisa login'+code+'. Pastikan Anonymous Authentication aktif dan Firestore Rules mengizinkan user login.',10000);render()});
 addEventListener('online',()=>{if(localPending&&cloudReady){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,100)}});
 addEventListener('beforeunload',()=>cacheSave());
+async function photoBlob(dataUrl){return await (await fetch(dataUrl)).blob()}
+async function uploadPhoto(orderId,dataUrl){const ref=storage.ref().child('orders/'+orderId+'/photo.jpg');await ref.put(await photoBlob(dataUrl),{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});return {url:await ref.getDownloadURL(),path:ref.fullPath}}
+async function deletePhoto(path){if(!path)return;try{await storage.ref(path).delete()}catch(e){if(e&&e.code!=='storage/object-not-found')console.warn(e)}}
+async function migrateLegacyPhotos(){const legacy=S.orders.filter(o=>typeof o.photo==='string'&&o.photo.startsWith('data:'));if(!legacy.length)return;for(const o of legacy){try{const r=await uploadPhoto(o.id,o.photo);o.photo=r.url;o.photoPath=r.path;cacheSave()}catch(e){console.error(e);toast('Ada foto lama yang belum berhasil dipindahkan ke Storage.',5000)}}}
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const idr=n=>'Rp '+Math.round(n).toLocaleString('id-ID');
@@ -169,14 +283,11 @@ const paidOf=o=>o.paidAmt||0,sisa=o=>Math.max(0,sell(o)-paidOf(o));
 
 function ensureTrip(){if(!S.trips||!S.trips.length)S.trips=[{id:'t1',name:S.trip.name,ts:Date.now()}];
 if(!S.trips.some(t=>t.id===S.tripId))S.tripId=(S.trips.filter(t=>!t.closedAt).pop()||S.trips[S.trips.length-1]).id;
-S.orders.forEach(o=>{if(!o.tripId)o.tripId=S.tripId;if(!o.orderDate)o.orderDate=localDateInput(o.ts)});if(!S.view||S.view!=='cur'&&S.view!=='all'&&!S.trips.some(t=>t.id===S.view))S.view='cur';if(!S.orderGroup)S.orderGroup='date'}
+S.orders.forEach(o=>{if(!o.tripId)o.tripId=S.tripId});if(S.view!=='cur'&&S.view!=='all'&&!S.trips.some(t=>t.id===S.view))S.view='cur'}
 const vid=()=>!S.view||S.view==='cur'?S.tripId:S.view;
 const vo=()=>S.view==='all'?S.orders:S.orders.filter(o=>o.tripId===vid());
 const tname=id=>id===S.tripId?S.trip.name:((S.trips.find(t=>t.id===id)||{}).name||'Trip');
 const vname=()=>S.view==='all'?'Semua trip':tname(vid());
-const localDateInput=ts=>{const d=new Date(ts||Date.now());const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${day}`};
-const orderDateOf=o=>o.orderDate||localDateInput(o.ts);
-const fmtOrderDate=d=>{if(!d)return '-';const p=String(d).split('-');if(p.length!==3)return e(d);return new Date(+p[0],+p[1]-1,+p[2]).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'})};
 const mkl=o=>num(o.finalPrice)>0?'untung '+idr(mk(o))+' (harga akhir)':o.mt==='idr'?'+'+idr(o.markup)+'/pcs':'+'+o.markup+'%';
 const bought=o=>o.status>=2;
 const waNum=n=>{n=String(n).replace(/\D/g,'');return n.startsWith('0')?'62'+n.slice(1):n.startsWith('8')?'62'+n:n};
@@ -190,7 +301,7 @@ return [`Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
 `Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, makasih banyak! 💚`][st]}
 const payMsg=(o,a)=>`Makasih ${cust(o.cid).name}! Pembayaran ${idr(a)} untuk ${o.item} sudah kuterima 💚 `+(sisa(o)>0?'Sisa '+idr(sisa(o))+' ya.':'Sudah lunas ✅')
 function toast(html,ms=6000){const t=$('#tt');t.innerHTML='<div class="toast">'+html+'</div>';clearTimeout(toast.h);toast.h=setTimeout(()=>t.innerHTML='',ms)}
-function sheet(html){$('#ov').innerHTML='<div class="scrim" id="sc"><div class="sheet" role="dialog"><button class="sheet-close" id="sheet-close" aria-label="Batal" title="Batal">×</button>'+html+'</div></div>';$('#sc').onclick=ev=>{if(ev.target.id==='sc'||ev.target.id==='sheet-close')close()}}
+function sheet(html){$('#ov').innerHTML='<div class="scrim" id="sc"><div class="sheet" role="dialog">'+html+'</div></div>';$('#sc').onclick=ev=>{if(ev.target.id==='sc')close()}}
 const close=()=>{$('#ov').innerHTML=''};
 function reqStatus(id,i){const o=S.orders.find(x=>x.id===id);if(i===3&&sisa(o)>0)paySheet(id);else setStatus(id,i)}
 function setStatus(id,i){const o=S.orders.find(x=>x.id===id);o.status=i;save();render()}
@@ -198,7 +309,6 @@ function stat(list){const b=list.filter(bought),rev=b.reduce((s,o)=>s+sell(o),0)
 const paid=list.reduce((s,o)=>s+paidOf(o),0);return{n:list.length,nb:b.length,rev,c,m:rev-c,paid,out:b.reduce((s,o)=>s+sisa(o),0),wait:list.filter(o=>!bought(o)).reduce((s,o)=>s+sell(o),0)}}
 
 function render(){
-sortCustomers();
 $('#tn').textContent=vname()+(S.view!=='all'&&vid()!==S.tripId?' (ditutup)':'');const s=stat(vo());$('#ts').textContent=vo().length+' pesanan · untung '+rb(s.m);
 document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
 $('#fab').style.display=(S.tab==='c'||S.tab==='p')?'none':'';
@@ -206,30 +316,21 @@ $('#m').innerHTML=S.tab==='q'?vQ():S.tab==='p'?vP():S.tab==='c'?vC():vD();}
 
 function vQ(){
 const cn=i=>vo().filter(o=>i<0||o.status===i).length;
-let h=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`+`<div class="row" style="margin:4px 0 8px;align-items:center"><label style="margin:0;flex:1;font-size:12px;color:var(--mute)">Kelompokkan berdasarkan</label><select id="order-group" style="width:auto;min-width:175px;min-height:40px"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`;
-const q=(S.q||'').toLowerCase();
-const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q)));
+let h=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`;
+const q=(S.q||'').toLowerCase();const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q))).sort((a,b)=>b.ts-a.ts);
 if(!L.length)return h+`<div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div>`;
-const keyOf=o=>S.orderGroup==='name'?((cust(o.cid).name||'Tanpa nama').trim()||'Tanpa nama'):S.orderGroup==='item'?((o.item||'Tanpa nama pesanan').trim()||'Tanpa nama pesanan'):orderDateOf(o);
-const labelOf=k=>S.orderGroup==='date'?fmtOrderDate(k):k;
-const cmp=(a,b)=>S.orderGroup==='date'?b.localeCompare(a):a.localeCompare(b,'id',{sensitivity:'base'});
-const groups={};L.forEach(o=>{const k=keyOf(o);(groups[k]||(groups[k]=[])).push(o)});
-const htmlGroup=Object.entries(groups).sort((a,b)=>cmp(a[0],b[0])).map(([g,items])=>{
-items.sort((a,b)=>S.orderGroup==='date'?((b.ts||0)-(a.ts||0)):(keyOf(a).localeCompare(keyOf(b),'id',{sensitivity:'base'})||(b.ts||0)-(a.ts||0)));
-return `<div class="order-group"><div class="order-group-title"><span>${e(labelOf(g))}</span><span class="fx">${items.length} pesanan</span></div>`+items.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
+return h+`<div class="orders-list">`+L.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
 return `<div class="card order-card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
-<div class="fx">Order: ${fmtOrderDate(orderDateOf(o))} · ${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
+<div class="fx">${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
 <div><div class="price">${idr(sell(o))}</div><div style="text-align:right">${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:32px;padding:0 10px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sebagian · sisa '+rb(sisa(o)):'Belum bayar'}</button>`:''}</div></div></div>
 <div class="steps">${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}">${t}</button>`).join('')}</div>
 <div class="acts">${nx?`<button class="go" data-s="${o.id}:${o.status+1}">${nx} ›</button>`:'<button class="go" style="background:var(--ok)" disabled>Selesai 🎉</button>'}
 ${c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o.status))}">WA</a>`:''}
-<button data-eo="${o.id}" aria-label="Ubah">⋯</button></div></div>`}).join('')+'</div>';
-}).join('');
-return h+htmlGroup;
-}
+<button data-eo="${o.id}" aria-label="Ubah">⋯</button></div></div>`}).join('')+'</div>'}
+
 function vC(){
 const q=(S.cq||'').trim().toLowerCase();
-const list=S.customers.filter(c=>!q||(c.name+' '+(c.wa||'')+' '+(c.address||c.notes||'')).toLowerCase().includes(q)).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));
+const list=S.customers.filter(c=>!q||(c.name+' '+(c.wa||'')+' '+(c.address||c.notes||'')).toLowerCase().includes(q));
 const add='<button class="primary" data-ec="">+ Pelanggan baru</button>';
 const toolbar=`<div class="customer-toolbar">${add}<input id="cqs" class="customer-search" placeholder="Cari nama pelanggan…" value="${e(S.cq||'')}" autocomplete="off"><div class="customer-count">${list.length} dari ${S.customers.length} pelanggan</div></div>`;
 if(!S.customers.length)return toolbar+'<div class="empty">Belum ada pelanggan. Tambah dulu biar gampang pas catat titipan.</div>';
@@ -276,13 +377,13 @@ return `${tripBar()}${S.ratesAt?'':'<div class="warn">Kurs masih angka perkiraan
 <input type="file" id="imp" accept=".json,application/json" hidden><button style="width:100%;margin-top:8px" data-imp="1">Pulihkan dari cadangan</button>
 ${histTrips()}${S.view==='all'||vid()!==S.tripId?'':`<button class="primary" style="background:var(--soft);color:var(--ink);margin-top:10px" id="newtrip">Tutup trip (cutoff)</button><div class="fx" style="margin-top:6px">Cutoff cuma menutup trip ini dan membuka trip baru. Pesanan, pembayaran, dan resi kargo tetap tersimpan, dan trip lama bisa dibuka lagi kapan saja.</div>`}`}
 
-function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct',finalPrice:'',orderDate:localDateInput()};
+function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct',finalPrice:''};
 let photo=o.photo||'';
 sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 <label>Cari pelanggan berdasarkan nama</label><input id="f-cq" placeholder="Ketik nama pelanggan…" autocomplete="off" value="${e((S.customers.find(c=>c.id===o.cid)||{}).name||'')}">
-<label>Pelanggan</label><select id="f-c">${S.customers.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
+<label>Pelanggan</label><select id="f-c">${S.customers.map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
 <div id="nc" hidden><label>Nama pelanggan baru</label><input id="f-nn" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="f-nw" inputmode="tel" placeholder="0812…"></div>
-<label>Tanggal order</label><input id="f-date" type="date" value="${e(orderDateOf(o))}"><label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
+<label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
 <label>Toko</label><input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi">
 <div class="two"><div><label>Kategori</label><select id="f-k">${CAT.map(k=>`<option ${k===o.cat?'selected':''}>${k}</option>`).join('')}</select></div><div><label>Dibawa lewat</label><select id="f-pm"><option value="kargo" ${(o.pm||'kargo')==='kargo'?'selected':''}>Kargo</option><option value="koper" ${o.pm==='koper'?'selected':''}>Koper</option></select></div></div>
 <div class="two"><div><label>Mata uang modal</label><select id="f-u">${Object.keys(S.rates).map(c=>`<option ${c===o.cur?'selected':''}>${c}</option>`).join('')}</select></div>
@@ -299,10 +400,9 @@ sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 <div id="sr"></div>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="del">Hapus pesanan</button>':''}`);
 
 const customerOptions=[...$('#f-c').options];
-const filterCustomers=()=>{const q=$('#f-cq').value.trim().toLocaleLowerCase('id');let shown=[];customerOptions.forEach(opt=>{const show=opt.value==='+'||!q||opt.textContent.toLocaleLowerCase('id').includes(q);opt.hidden=!show;if(show&&opt.value!=='+')shown.push(opt)});if(!q){$('#f-c').value=o.cid||''}else if(shown.length===1&&shown[0].value!=='+'){$('#f-c').value=shown[0].value;$('#nc').hidden=true}};
+const filterCustomers=()=>{const q=$('#f-cq').value.trim().toLowerCase();let shown=[];customerOptions.forEach(opt=>{const show=opt.value==='+'||!q||opt.textContent.toLowerCase().includes(q);opt.hidden=!show;if(show&&opt.value!=='+')shown.push(opt)});if(q&&shown.length===1&&shown[0].value!=='+'){$('#f-c').value=shown[0].value;$('#nc').hidden=true}};
 $('#f-cq').oninput=filterCustomers;
-$('#f-c').onchange=()=>{const v=$('#f-c').value;$('#nc').hidden=v!=='+';if(v!=='+'){const c=S.customers.find(x=>x.id===v);if(c)$('#f-cq').value=c.name;filterCustomers()}};
-$('#nc').hidden=$('#f-c').value!=='+';
+$('#f-c').onchange=()=>{const v=$('#f-c').value;$('#nc').hidden=v!=='+';if(v!=='+'){const c=S.customers.find(x=>x.id===v);if(c)$('#f-cq').value=c.name}};
 filterCustomers();
 
 const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]||0,qty=Math.max(1,num($('#f-q').value)),a=num($('#f-a').value)*qty*r,final=num($('#f-final').value),m=num($('#f-m').value),t=$('#f-mt').value;
@@ -317,6 +417,7 @@ const paint=()=>{$('#pb').innerHTML=photo?`<img class="big" src="${photo}" alt="
 if(photo)$('#pr').onclick=()=>{photo='';paint()};else{$('#pc').onclick=()=>$('#p-cam').click();$('#pg').onclick=()=>$('#p-gal').click()}};
 const pick=async ev=>{const f=ev.target.files[0];if(!f)return;try{photo=await shrink(f);paint()}catch(x){toast('Fotonya nggak bisa dibuka, coba foto lain ya',3000)}};
 $('#p-cam').onchange=pick;$('#p-gal').onchange=pick;paint();
+$('#f-c').onchange=()=>{$('#nc').hidden=$('#f-c').value!=='+'};$('#nc').hidden=$('#f-c').value!=='+';
 $('#f-ok').onclick=async()=>{let cid=$('#f-c').value;
 if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelanggannya dulu ya',2500);cid=uid();S.customers.push({id:cid,name:n,wa:$('#f-nw').value.trim(),notes:''})}
 if(!cid)return toast('Pilih pelanggan dulu ya',2500);
@@ -325,7 +426,7 @@ const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diis
 const modalTotal=amt*qty*S.rates[cur];if(finalPrice>0&&finalPrice<modalTotal)return toast('Harga akhir tidak boleh lebih kecil dari modal '+idr(modalTotal),3500);
 const orderId=id||uid(),old=S.orders.find(z=>z.id===id),oldPhoto=old?.photo||'',oldPath=old?.photoPath||'',newPhotoIsData=typeof photo==='string'&&photo.startsWith('data:image/');
 const autoMarkup=finalPrice>0?Math.max(0,(finalPrice-modalTotal)/qty):num($('#f-m').value);
-const orderDate=$('#f-date').value||localDateInput();const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,orderDate,photo:newPhotoIsData?'':photo,photoPath:newPhotoIsData?(oldPath||''):photo?oldPath:'',pm:$('#f-pm').value};
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,photo:newPhotoIsData?'':photo,photoPath:newPhotoIsData?(oldPath||''):photo?oldPath:'',pm:$('#f-pm').value};
 if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
 else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
 S.trip.cur=cur;if(!finalPrice){S.trip.markup=d.markup;S.trip.mt=d.mt}save();close();render();
@@ -425,7 +526,7 @@ catch(er){if(er&&er.code==='declined')return;toast('PDF gagal dibuat, coba lagi 
 addEventListener('input',ev=>{if(ev.target.id==='qs'){S.q=ev.target.value;render();const el=$('#qs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}else if(ev.target.id==='cqs'){S.cq=ev.target.value;render();const el=$('#cqs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}});
 addEventListener('change',ev=>{const t=ev.target,d=t.dataset,f=id=>S.orders.find(x=>x.id===id);
 if(d.pkd){f(d.pkd).packed=t.checked;save();render()}else if(d.pm){f(d.pm).pm=t.value;save();render()}
-else if(d.kp){S.kp=t.checked?S.kp.concat(d.kp):S.kp.filter(x=>x!==d.kp);render()}else if(d.tv){S.view=t.value;S.filter=-1;save();render()}else if(t.id==='order-group'){S.orderGroup=t.value||'date';save();render()}else if(d.pick){S.pick=t.checked?S.pick.concat(d.pick):S.pick.filter(x=>x!==d.pick);save();render()}
+else if(d.kp){S.kp=t.checked?S.kp.concat(d.kp):S.kp.filter(x=>x!==d.kp);render()}else if(d.tv){S.view=t.value;S.filter=-1;save();render()}else if(d.pick){S.pick=t.checked?S.pick.concat(d.pick):S.pick.filter(x=>x!==d.pick);save();render()}
 else if(t.id==='imp'){const fl=t.files[0];if(!fl)return;const rd=new FileReader();rd.onload=()=>{try{const j=JSON.parse(rd.result);if(!j||!(j.orders||j.customers))throw 0;S=Object.assign(def(),j);ensureTrip();save();render();toast('Cadangan dipulihkan ✔',3000)}catch(x){toast('File cadangan nggak valid',3000)}};rd.readAsText(fl)}});
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,ev=>ev.preventDefault()));
 document.addEventListener('touchmove',ev=>{if(ev.touches.length>1)ev.preventDefault()},{passive:false});
