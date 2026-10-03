@@ -58,7 +58,11 @@ input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px s
 .big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--soft);margin-top:6px}
 pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
-</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+</head><body>
 <header><div><h1 id="tn"></h1><div class="sub" id="ts"></div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
 <main id="m"></main>
 <button class="fab" id="fab">+ Pesanan</button>
@@ -68,10 +72,101 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 const CUR={JPY:['¥',110],KRW:['₩',11.6],SGD:['S$',12900],THB:['฿',490],HKD:['HK$',2100],USD:['$',16400],MYR:['RM',3900],TWD:['NT$',520],EUR:['€',19200],AUD:['A$',10900],CNY:['CN¥',2300]};
 const ST=['Dicari','Ketemu','Dibeli','Dibayar','OTW Indo','Done'];
 const CAT=['Skincare','Makeup','Obat & Vitamin','Snack & Makanan','Fashion','Lainnya'];
+const firebaseConfig={
+  apiKey:"AIzaSyBX3GOOzJz5e32-VhK_RdXfRzSTnXqBjyk",
+  authDomain:"aplikasi-admin-jastip.firebaseapp.com",
+  projectId:"aplikasi-admin-jastip",
+  storageBucket:"aplikasi-admin-jastip.firebasestorage.app",
+  messagingSenderId:"652391383919",
+  appId:"1:652391383919:web:1e91cd54623cab61cc9e9a"
+};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.firestore(), auth=firebase.auth();
+
 const K='jastip-v1';
 const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',kp:[],trips:[],tripId:'',view:'cur'});
-let S;try{S=Object.assign(def(),JSON.parse(localStorage.getItem(K)||'{}'))}catch(e){S=def()}
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Memori HP penuh, perubahan terakhir belum tersimpan. Simpan cadangan & hapus beberapa foto ya.',8000)}};
+let S=def();
+function loadCache(){try{const x=JSON.parse(localStorage.getItem(K)||'null');if(x)S=Object.assign(def(),x)}catch(e){}}
+loadCache();
+const localBackup=JSON.parse(JSON.stringify(S));
+let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null;
+let initialCloud={customers:false,orders:false,trips:false,ships:false,meta:false};
+let cloudIds={customers:new Set(),orders:new Set(),trips:new Set(),ships:new Set()};
+
+function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
+
+function metaData(){
+  return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,
+    pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1,
+    updatedAt:firebase.firestore.FieldValue.serverTimestamp()};
+}
+
+function save(){
+  cacheSave();
+  if(!cloudReady||cloudWriting)return;
+  clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,250);
+}
+
+async function syncCloud(){
+  if(!cloudReady||cloudWriting)return;
+  cloudWriting=true;
+  try{
+    const batch=db.batch();
+    const wanted={customers:new Set(),orders:new Set(),trips:new Set(),ships:new Set()};
+    S.customers.forEach(x=>{wanted.customers.add(x.id);batch.set(db.collection('customers').doc(x.id),x)});
+    S.orders.forEach(x=>{wanted.orders.add(x.id);batch.set(db.collection('orders').doc(x.id),x)});
+    S.trips.forEach(x=>{wanted.trips.add(x.id);batch.set(db.collection('trips').doc(x.id),x)});
+    Object.entries(S.ships||{}).forEach(([id,x])=>{wanted.ships.add(id);batch.set(db.collection('ships').doc(id),x)});
+    Object.entries(cloudIds).forEach(([col,ids])=>ids.forEach(id=>{if(!wanted[col].has(id))batch.delete(db.collection(col).doc(id))}));
+    batch.set(db.collection('settings').doc('app'),metaData(),{merge:true});
+    await batch.commit();
+    cloudIds={customers:new Set(S.customers.map(x=>x.id)),orders:new Set(S.orders.map(x=>x.id)),
+      trips:new Set(S.trips.map(x=>x.id)),ships:new Set(Object.keys(S.ships||{}))};
+  }catch(err){
+    console.error(err);toast('Gagal menyimpan ke Firebase. Cek koneksi & Firestore Rules.',5000);
+  }finally{cloudWriting=false}
+}
+
+function applyMeta(snap){
+  if(!snap.exists)return;
+  const x=snap.data()||{};
+  if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;
+  ['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]});
+}
+
+function cloudError(err){
+  console.error(err);
+  toast('Firebase belum tersambung. Cek Firestore Rules dan koneksi internet.',7000);
+}
+
+function cloudTick(){
+  if(!Object.values(initialCloud).every(Boolean))return;
+  if(!cloudBooted){
+    cloudBooted=true;
+    const cloudEmpty=!S.customers.length&&!S.orders.length&&!S.trips.length&&!Object.keys(S.ships||{}).length;
+    const localHadData=localBackup.customers.length||localBackup.orders.length||localBackup.trips.length||Object.keys(localBackup.ships||{}).length;
+    if(cloudEmpty&&localHadData){S=Object.assign(def(),localBackup)}
+    ensureTrip();
+    S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
+    if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
+    cloudReady=true;
+    syncCloud();
+  }
+  render();
+}
+
+function startCloud(){
+  db.collection('customers').onSnapshot(s=>{initialCloud.customers=true;S.customers=s.docs.map(d=>d.data());cloudIds.customers=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('orders').onSnapshot(s=>{initialCloud.orders=true;S.orders=s.docs.map(d=>d.data());cloudIds.orders=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('trips').onSnapshot(s=>{initialCloud.trips=true;S.trips=s.docs.map(d=>d.data());cloudIds.trips=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('ships').onSnapshot(s=>{initialCloud.ships=true;S.ships={};s.forEach(d=>S.ships[d.id]=d.data());cloudIds.ships=new Set(s.docs.map(d=>d.id));cloudTick()},cloudError);
+  db.collection('settings').doc('app').onSnapshot(s=>{initialCloud.meta=true;applyMeta(s);cloudTick()},cloudError);
+}
+
+auth.signInAnonymously().then(startCloud).catch(err=>{
+  console.error(err);toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render();
+});
+
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const idr=n=>'Rp '+Math.round(n).toLocaleString('id-ID');
@@ -84,9 +179,7 @@ const cost=o=>o.amt*o.qty*o.rate;
 const mk=o=>o.mt==='idr'?o.markup*o.qty:cost(o)*o.markup/100;
 const sell=o=>Math.ceil((cost(o)+mk(o))/500)*500;
 const paidOf=o=>o.paidAmt||0,sisa=o=>Math.max(0,sell(o)-paidOf(o));
-ensureTrip();
-S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
-if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1;save()}
+
 function ensureTrip(){if(!S.trips||!S.trips.length)S.trips=[{id:'t1',name:S.trip.name,ts:Date.now()}];
 if(!S.trips.some(t=>t.id===S.tripId))S.tripId=(S.trips.filter(t=>!t.closedAt).pop()||S.trips[S.trips.length-1]).id;
 S.orders.forEach(o=>{if(!o.tripId)o.tripId=S.tripId});if(S.view!=='cur'&&S.view!=='all'&&!S.trips.some(t=>t.id===S.view))S.view='cur'}
@@ -217,14 +310,12 @@ else{S.orders.push({...d,id:uid(),rate:S.rates[cur],status:0,paidAmt:0,tripId:S.
 S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
 if(id){$('#del').onclick=()=>{if($('#del').dataset.cf){S.orders=S.orders.filter(x=>x.id!==id);save();close();render()}else{$('#del').dataset.cf=1;$('#del').textContent='Yakin hapus? Ketuk lagi'}}}
 $('#scan').onclick=()=>$('#f-f').click();
-$('#f-f').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;const r=$('#sr');r.innerHTML='<div class="sub">Lagi baca struknya…</div>';
-try{const sm=await claude.use('sample');if(!sm)throw{code:'na'};
-const d=await sm.json('Ini foto struk belanja toko luar negeri. Ekstrak setiap barang. Balas HANYA JSON array: [{"item":"nama barang (ringkas)","amount":harga satuan angka,"currency":"kode ISO 3 huruf"}]. Kalau ragu soal mata uang, tebak dari negara/simbol di struk. Jangan mengarang barang yang tidak terbaca.',{images:f,modelTier:'quick',cache:false});
-const L=(Array.isArray(d)?d:[]).filter(x=>x&&x.item&&num(x.amount)>0).slice(0,12);
-if(!L.length)return r.innerHTML='<div class="warn">Nggak ada barang yang kebaca. Coba foto lebih dekat & terang, atau isi manual.</div>';
-r.innerHTML='<div class="sub" style="margin-top:8px">Ketemu '+L.length+' barang. Ketuk untuk isi form, cek lagi sebelum dicatat:</div><div class="found">'+L.map((x,i)=>`<button class="chip" data-x="${i}">${e(x.item)} · ${e(x.currency||'')} ${e(x.amount)}</button>`).join('')+'</div>';
-r.onclick=c=>{const b=c.target.closest('[data-x]');if(!b)return;const x=L[b.dataset.x];$('#f-i').value=x.item;$('#f-a').value=x.amount;const cc=String(x.currency||'').toUpperCase();if(S.rates[cc])$('#f-u').value=cc;pv()}}
-catch(er){r.innerHTML='<div class="warn">'+(er.code==='not_granted'?'Izin ditolak, jadi struk belum dibaca.':'Scan struk belum bisa dipakai di sini. Isi manual dulu ya.')+'</div>'}}}
+$('#f-f').onchange=async ev=>{
+ const f=ev.target.files[0];if(!f)return;
+ const r=$('#sr');
+ r.innerHTML='<div class="warn">Scan struk otomatis tidak disertakan dalam versi Firebase ini. Foto struk tetap dapat disimpan, sedangkan detail barang diisi manual.</div>';
+};
+}
 
 const SHIP=['Diproses forwarder','OTW Indonesia','Tiba di Indonesia','Done'];
 const shipIds=()=>Object.keys(S.ships).filter(r=>S.orders.some(o=>o.resi===r));
@@ -305,8 +396,6 @@ if(price){if(y>270){d.addPage();y=M}d.setFont('helvetica','bold');d.setFontSize(
 return d.output('blob')}
 async function savePdf(r){if(!window.jspdf)return toast('Pembuat PDF belum termuat. Cek internet lalu coba lagi.',4000);
 try{const b=pdfBlob(r,S.pdfPrice!==false),fn='packing-list-'+r.replace(/[^\w-]+/g,'_')+'.pdf';
-const dl=typeof claude!=='undefined'?await claude.use('downloads'):null;
-if(dl){await dl.save({filename:fn,data:b});return toast('PDF siap ✔',2500)}
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 catch(er){if(er&&er.code==='declined')return;toast('PDF gagal dibuat, coba lagi ya',4000)}}
 addEventListener('input',ev=>{if(ev.target.id==='qs'){S.q=ev.target.value;render();const el=$('#qs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}});
@@ -317,7 +406,6 @@ else if(t.id==='imp'){const fl=t.files[0];if(!fl)return;const rd=new FileReader(
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,ev=>ev.preventDefault()));
 document.addEventListener('touchmove',ev=>{if(ev.touches.length>1)ev.preventDefault()},{passive:false});
 async function backup(){const b=new Blob([JSON.stringify(S)],{type:'application/json'}),fn='jastip-cadangan.json';
-try{const dl=typeof claude!=='undefined'?await claude.use('downloads'):null;if(dl){await dl.save({filename:fn,data:b});return}}catch(er){if(er&&er.code==='declined')return}
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 function shrink(f){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const i=new Image();i.onerror=rej;i.onload=()=>{const k=Math.min(1,640/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};i.src=r.result};r.readAsDataURL(f)})}
 function custSheet(id){const c=S.customers.find(x=>x.id===id)||{name:'',wa:'',notes:''};
