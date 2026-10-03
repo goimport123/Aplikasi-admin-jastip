@@ -58,13 +58,8 @@ input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px s
 .big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--soft);margin-top:6px}
 pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px}
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .18s ease-out}@keyframes up{from{transform:translateY(30px);opacity:.6}}}
-</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-storage-compat.js"></script>
-</head><body>
-<header><div><h1 id="tn"></h1><div class="sub" id="ts"></div><div class="fx" id="cs">☁ Menghubungkan…</div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
+</style><script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script></head><body>
+<header><div><h1 id="tn"></h1><div class="sub" id="ts"></div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
 <main id="m"></main>
 <button class="fab" id="fab">+ Pesanan</button>
 <nav class="nav"><button data-t="q">Pesanan</button><button data-t="p">Packing</button><button data-t="c">Daftar pembeli</button><button data-t="d">Trip</button></nav>
@@ -73,149 +68,10 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 const CUR={JPY:['¥',110],KRW:['₩',11.6],SGD:['S$',12900],THB:['฿',490],HKD:['HK$',2100],USD:['$',16400],MYR:['RM',3900],TWD:['NT$',520],EUR:['€',19200],AUD:['A$',10900],CNY:['CN¥',2300]};
 const ST=['Dicari','Ketemu','Dibeli','Dibayar','OTW Indo','Done'];
 const CAT=['Skincare','Makeup','Obat & Vitamin','Snack & Makanan','Fashion','Lainnya'];
-const firebaseConfig={
-  apiKey:"AIzaSyBX3GOOzJz5e32-VhK_RdXfRzSTnXqBjyk",
-  authDomain:"aplikasi-admin-jastip.firebaseapp.com",
-  projectId:"aplikasi-admin-jastip",
-  storageBucket:"aplikasi-admin-jastip.firebasestorage.app",
-  messagingSenderId:"652391383919",
-  appId:"1:652391383919:web:1e91cd54623cab61cc9e9a"
-};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore(), auth=firebase.auth(), storage=firebase.storage();
-try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
-
 const K='jastip-v1';
 const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',kp:[],trips:[],tripId:'',view:'cur'});
-let S=def();
-function loadCache(){try{const x=JSON.parse(localStorage.getItem(K)||'null');if(x)S=Object.assign(def(),x)}catch(e){}}
-loadCache();
-const localBackup=JSON.parse(JSON.stringify(S));
-let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null,cloudDirty=false,cloudState='connecting',cloudStarted=false;
-let initialCloud={customers:false,orders:false,trips:false,ships:false,meta:false};
-const cloudShadow={customers:{},orders:{},trips:{},ships:{},meta:''};
-
-function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOString():v)}
-function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,
-  pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1}}
-function metaData(){return {...metaPlain(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
-function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Firebase tersambung':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Firebase bermasalah':'☁ Menghubungkan…'}
-function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
-
-function save(){
-  cacheSave();
-  if(!cloudReady){cloudDirty=true;return}
-  if(cloudWriting){cloudDirty=true;return}
-  clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,250);
-}
-
-function currentDocs(){
-  const docs={customers:{},orders:{},trips:{},ships:{},meta:metaPlain()};
-  S.customers.forEach(x=>docs.customers[x.id]=x);
-  S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));
-  S.trips.forEach(x=>docs.trips[x.id]=x);
-  Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=x);
-  return docs;
-}
-function cloudOrder(o){const x={...o};if(typeof x.photo==='string'&&x.photo.startsWith('data:'))x.photo='';return x}
-
-async function syncCloud(){
-  if(!cloudReady||cloudWriting)return;
-  cloudWriting=true;cloudDirty=false;setCloudState('saving');
-  try{
-    const docs=currentDocs(),ops=[];
-    for(const col of ['customers','orders','trips','ships']){
-      const now=docs[col],old=cloudShadow[col];
-      for(const [id,data] of Object.entries(now)){
-        const sig=stable(data);
-        if(old[id]!==sig)ops.push({type:'set',col,id,data,sig});
-      }
-      for(const id of Object.keys(old)){
-        if(!(id in now))ops.push({type:'delete',col,id});
-      }
-    }
-    const metaSig=stable(docs.meta);
-    if(cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig});
-    if(ops){
-      for(let i=0;i<ops.length;i+=450){
-        const batch=db.batch(),chunk=ops.slice(i,i+450);
-        chunk.forEach(op=>{
-          if(op.type==='set')batch.set(db.collection(op.col).doc(op.id),op.data);
-          else if(op.type==='delete')batch.delete(db.collection(op.col).doc(op.id));
-          else batch.set(db.collection('settings').doc('app'),metaData(),{merge:true});
-        });
-        await batch.commit();
-        chunk.forEach(op=>{
-          if(op.type==='set')cloudShadow[op.col][op.id]=op.sig;
-          else if(op.type==='delete')delete cloudShadow[op.col][op.id];
-          else cloudShadow.meta=op.sig;
-        });
-      }
-    }
-    setCloudState('online');
-  }catch(err){
-    console.error(err);cloudDirty=true;setCloudState('error');toast('Gagal menyimpan ke Firebase. Data tetap tersimpan di perangkat; coba lagi saat koneksi pulih.',6000);
-  }finally{
-    cloudWriting=false;
-    if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,300)}
-  }
-}
-function applyMeta(snap){
-  if(!snap.exists)return;
-  const x=snap.data()||{};
-  if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;
-  ['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]});
-}
-function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>cloudShadow[col][d.id]=stable(cloudOrder(d.data())));}
-function cloudError(err){console.error(err);setCloudState('error');toast('Firebase belum tersambung. Cek Anonymous Authentication, Firestore Rules, Storage Rules, dan koneksi internet.',7000)}
-
-async function photoBlob(dataUrl){return await (await fetch(dataUrl)).blob()}
-async function uploadPhoto(orderId,dataUrl){
-  const ref=storage.ref().child('orders/'+orderId+'/photo.jpg');
-  await ref.put(await photoBlob(dataUrl),{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});
-  return {url:await ref.getDownloadURL(),path:ref.fullPath};
-}
-async function deletePhoto(path){if(!path)return;try{await storage.ref(path).delete()}catch(e){if(e&&e.code!=='storage/object-not-found')console.warn(e)}}
-async function migrateLegacyPhotos(){
-  const legacy=S.orders.filter(o=>typeof o.photo==='string'&&o.photo.startsWith('data:'));
-  if(!legacy.length)return;
-  setCloudState('saving');
-  for(const o of legacy){
-    try{const r=await uploadPhoto(o.id,o.photo);o.photo=r.url;o.photoPath=r.path;cacheSave();}
-    catch(e){console.error(e);toast('Ada foto lama yang belum berhasil dipindahkan ke Storage.',5000)}
-  }
-}
-
-async function cloudTick(){
-  if(!Object.values(initialCloud).every(Boolean))return;
-  if(!cloudBooted){
-    cloudBooted=true;
-    const cloudEmpty=!S.customers.length&&!S.orders.length&&!S.trips.length&&!Object.keys(S.ships||{}).length;
-    const localHadData=localBackup.customers.length||localBackup.orders.length||localBackup.trips.length||Object.keys(localBackup.ships||{}).length;
-    if(cloudEmpty&&localHadData){S=Object.assign(def(),localBackup)}
-    ensureTrip();
-    S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
-    if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
-    await migrateLegacyPhotos();
-    cloudReady=true;cloudDirty=true;await syncCloud();
-  }
-  cacheSave();render();
-}
-
-function startCloud(){
-  if(cloudStarted)return;cloudStarted=true;
-  db.collection('customers').onSnapshot(s=>{initialCloud.customers=true;S.customers=s.docs.map(d=>d.data());shadowCollection('customers',s);cloudTick()},cloudError);
-  db.collection('orders').onSnapshot(s=>{initialCloud.orders=true;S.orders=s.docs.map(d=>d.data());shadowCollection('orders',s);cloudTick()},cloudError);
-  db.collection('trips').onSnapshot(s=>{initialCloud.trips=true;S.trips=s.docs.map(d=>d.data());shadowCollection('trips',s);cloudTick()},cloudError);
-  db.collection('ships').onSnapshot(s=>{initialCloud.ships=true;S.ships={};s.forEach(d=>S.ships[d.id]=d.data());shadowCollection('ships',s);cloudTick()},cloudError);
-  db.collection('settings').doc('app').onSnapshot(s=>{initialCloud.meta=true;applyMeta(s);cloudShadow.meta=s.exists?stable(metaPlain()):'';cloudTick()},cloudError);
-}
-
-auth.onAuthStateChanged(user=>{
-  if(user){setCloudState('connecting');startCloud()}
-});
-auth.signInAnonymously().catch(err=>{console.error(err);setCloudState('error');toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render()});
-
+let S;try{S=Object.assign(def(),JSON.parse(localStorage.getItem(K)||'{}'))}catch(e){S=def()}
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(S))}catch(e){toast('Memori HP penuh, perubahan terakhir belum tersimpan. Simpan cadangan & hapus beberapa foto ya.',8000)}};
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const idr=n=>'Rp '+Math.round(n).toLocaleString('id-ID');
@@ -228,7 +84,9 @@ const cost=o=>o.amt*o.qty*o.rate;
 const mk=o=>o.mt==='idr'?o.markup*o.qty:cost(o)*o.markup/100;
 const sell=o=>Math.ceil((cost(o)+mk(o))/500)*500;
 const paidOf=o=>o.paidAmt||0,sisa=o=>Math.max(0,sell(o)-paidOf(o));
-
+ensureTrip();
+S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
+if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1;save()}
 function ensureTrip(){if(!S.trips||!S.trips.length)S.trips=[{id:'t1',name:S.trip.name,ts:Date.now()}];
 if(!S.trips.some(t=>t.id===S.tripId))S.tripId=(S.trips.filter(t=>!t.closedAt).pop()||S.trips[S.trips.length-1]).id;
 S.orders.forEach(o=>{if(!o.tripId)o.tripId=S.tripId});if(S.view!=='cur'&&S.view!=='all'&&!S.trips.some(t=>t.id===S.view))S.view='cur'}
@@ -348,27 +206,25 @@ if(photo)$('#pr').onclick=()=>{photo='';paint()};else{$('#pc').onclick=()=>$('#p
 const pick=async ev=>{const f=ev.target.files[0];if(!f)return;try{photo=await shrink(f);paint()}catch(x){toast('Fotonya nggak bisa dibuka, coba foto lain ya',3000)}};
 $('#p-cam').onchange=pick;$('#p-gal').onchange=pick;paint();
 $('#f-c').onchange=()=>{$('#nc').hidden=$('#f-c').value!=='+'};$('#nc').hidden=$('#f-c').value!=='+';
-$('#f-ok').onclick=async()=>{let cid=$('#f-c').value;
+$('#f-ok').onclick=()=>{let cid=$('#f-c').value;
 if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelanggannya dulu ya',2500);cid=uid();S.customers.push({id:cid,name:n,wa:$('#f-nw').value.trim(),notes:''})}
 if(!cid)return toast('Pilih pelanggan dulu ya',2500);
 const item=$('#f-i').value.trim(),amt=num($('#f-a').value);if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
 const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diisi',2500);
-const orderId=id||uid(),old=S.orders.find(z=>z.id===id),oldPhoto=old?.photo||'',oldPath=old?.photoPath||'',newPhotoIsData=typeof photo==='string'&&photo.startsWith('data:image/');
-const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo:newPhotoIsData?'':photo,photoPath:newPhotoIsData?(oldPath||''):photo?oldPath:'',pm:$('#f-pm').value};
-if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
-else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
-S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();
-if(newPhotoIsData){toast('Pesanan tersimpan. Mengunggah foto…',4000);try{const r=await uploadPhoto(orderId,photo);const x=S.orders.find(z=>z.id===orderId);if(x){x.photo=r.url;x.photoPath=r.path;save();render();toast('Foto tersimpan di Firebase Storage ✔',2500)}}catch(err){console.error(err);toast('Pesanan tersimpan, tapi foto gagal diunggah. Coba edit pesanan lalu pilih foto lagi.',6000)}}
-else if(old&&oldPhoto&&!photo){await deletePhoto(oldPath);if(old){old.photoPath='';save()}}
-else toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty:Math.max(1,Math.round(num($('#f-q').value))||1),markup:num($('#f-m').value),mt:$('#f-mt').value,photo,pm:$('#f-pm').value};
+if(id){const x=S.orders.find(z=>z.id===id);if(x.cur!==cur||x.amt!==amt&&false)d.rate=S.rates[cur];Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
+else{S.orders.push({...d,id:uid(),rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
+S.trip.cur=cur;S.trip.markup=d.markup;S.trip.mt=d.mt;save();close();render();toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
 if(id){$('#del').onclick=()=>{if($('#del').dataset.cf){S.orders=S.orders.filter(x=>x.id!==id);save();close();render()}else{$('#del').dataset.cf=1;$('#del').textContent='Yakin hapus? Ketuk lagi'}}}
 $('#scan').onclick=()=>$('#f-f').click();
-$('#f-f').onchange=async ev=>{
- const f=ev.target.files[0];if(!f)return;
- const r=$('#sr');
- r.innerHTML='<div class="warn">Scan struk otomatis tidak disertakan dalam versi Firebase ini. Foto struk tetap dapat disimpan, sedangkan detail barang diisi manual.</div>';
-};
-}
+$('#f-f').onchange=async ev=>{const f=ev.target.files[0];if(!f)return;const r=$('#sr');r.innerHTML='<div class="sub">Lagi baca struknya…</div>';
+try{const sm=await claude.use('sample');if(!sm)throw{code:'na'};
+const d=await sm.json('Ini foto struk belanja toko luar negeri. Ekstrak setiap barang. Balas HANYA JSON array: [{"item":"nama barang (ringkas)","amount":harga satuan angka,"currency":"kode ISO 3 huruf"}]. Kalau ragu soal mata uang, tebak dari negara/simbol di struk. Jangan mengarang barang yang tidak terbaca.',{images:f,modelTier:'quick',cache:false});
+const L=(Array.isArray(d)?d:[]).filter(x=>x&&x.item&&num(x.amount)>0).slice(0,12);
+if(!L.length)return r.innerHTML='<div class="warn">Nggak ada barang yang kebaca. Coba foto lebih dekat & terang, atau isi manual.</div>';
+r.innerHTML='<div class="sub" style="margin-top:8px">Ketemu '+L.length+' barang. Ketuk untuk isi form, cek lagi sebelum dicatat:</div><div class="found">'+L.map((x,i)=>`<button class="chip" data-x="${i}">${e(x.item)} · ${e(x.currency||'')} ${e(x.amount)}</button>`).join('')+'</div>';
+r.onclick=c=>{const b=c.target.closest('[data-x]');if(!b)return;const x=L[b.dataset.x];$('#f-i').value=x.item;$('#f-a').value=x.amount;const cc=String(x.currency||'').toUpperCase();if(S.rates[cc])$('#f-u').value=cc;pv()}}
+catch(er){r.innerHTML='<div class="warn">'+(er.code==='not_granted'?'Izin ditolak, jadi struk belum dibaca.':'Scan struk belum bisa dipakai di sini. Isi manual dulu ya.')+'</div>'}}}
 
 const SHIP=['Diproses forwarder','OTW Indonesia','Tiba di Indonesia','Done'];
 const shipIds=()=>Object.keys(S.ships).filter(r=>S.orders.some(o=>o.resi===r));
@@ -449,6 +305,8 @@ if(price){if(y>270){d.addPage();y=M}d.setFont('helvetica','bold');d.setFontSize(
 return d.output('blob')}
 async function savePdf(r){if(!window.jspdf)return toast('Pembuat PDF belum termuat. Cek internet lalu coba lagi.',4000);
 try{const b=pdfBlob(r,S.pdfPrice!==false),fn='packing-list-'+r.replace(/[^\w-]+/g,'_')+'.pdf';
+const dl=typeof claude!=='undefined'?await claude.use('downloads'):null;
+if(dl){await dl.save({filename:fn,data:b});return toast('PDF siap ✔',2500)}
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 catch(er){if(er&&er.code==='declined')return;toast('PDF gagal dibuat, coba lagi ya',4000)}}
 addEventListener('input',ev=>{if(ev.target.id==='qs'){S.q=ev.target.value;render();const el=$('#qs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}});
@@ -459,6 +317,7 @@ else if(t.id==='imp'){const fl=t.files[0];if(!fl)return;const rd=new FileReader(
 ['gesturestart','gesturechange','gestureend'].forEach(t=>document.addEventListener(t,ev=>ev.preventDefault()));
 document.addEventListener('touchmove',ev=>{if(ev.touches.length>1)ev.preventDefault()},{passive:false});
 async function backup(){const b=new Blob([JSON.stringify(S)],{type:'application/json'}),fn='jastip-cadangan.json';
+try{const dl=typeof claude!=='undefined'?await claude.use('downloads'):null;if(dl){await dl.save({filename:fn,data:b});return}}catch(er){if(er&&er.code==='declined')return}
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 function shrink(f){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const i=new Image();i.onerror=rej;i.onload=()=>{const k=Math.min(1,640/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};i.src=r.result};r.readAsDataURL(f)})}
 function custSheet(id){const c=S.customers.find(x=>x.id===id)||{name:'',wa:'',notes:''};
