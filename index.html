@@ -115,91 +115,179 @@ loadCache();
 let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null,cloudDirty=false,cloudState='connecting',cloudStarted=false;
 let initialCloud={customers:false,orders:false,trips:false,ships:false,meta:false};
 const cloudShadow={customers:{},orders:{},trips:{},ships:{},meta:''};
+const localBase={customers:{},orders:{},trips:{},ships:{},meta:''};
+let serverSnapshotReady=false;
 
 function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOString():v)}
 function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1,updatedAtMs:localEditAt||0,clientId:CLIENT_ID}}
 function metaData(){return {...metaPlain(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
 function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Tersimpan & sinkron':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Belum tersimpan':'☁ Menghubungkan…'}
 function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S));localStorage.setItem(K+'-pending',localPending?'1':'0');localStorage.setItem(K+'-pending-ts',String(Date.now()));localStorage.setItem(K+'-edit-at',String(localEditAt||0))}catch(e){toast('Penyimpanan HP gagal. Browser ini mungkin memblokir localStorage.',7000)}}
-function save(){localEditAt=Date.now();localPending=true;cacheSave();cloudDirty=true;if(!cloudReady||cloudWriting)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,20)}
-function currentDocs(){const docs={customers:{},orders:{},trips:{},ships:{},meta:metaPlain()};S.customers.forEach(x=>docs.customers[x.id]=x);S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=x);Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=x);return docs}
-function rebuildFromCloud(){
-  if(!cloudMetaCache && !Object.values(cloudShadow).some(v=>Object.keys(v).length)) return false;
-  const cs=[];Object.values(cloudShadow.customers).forEach(sig=>{});
-  return true;
-}
-function cloudOrder(o){const x={...o};if(typeof x.photo==='string'&&x.photo.startsWith('data:'))x.photo='';return x}
-async function syncCloud(){
-  if(!cloudReady||cloudWriting)return;
-  cloudWriting=true;
-  cloudDirty=false;
-  setCloudState('saving');
-  try{
-    const docs=currentDocs(),ops=[];
-    for(const col of ['customers','orders','trips','ships']){
-      const now=docs[col],old=cloudShadow[col];
-      for(const [id,data] of Object.entries(now)){
-        const sig=stable(data);
-        if(old[id]!==sig)ops.push({type:'set',col,id,data,sig});
-      }
-      for(const id of Object.keys(old)){
-        if(!(id in now))ops.push({type:'delete',col,id});
-      }
-    }
-    const metaSig=stable(docs.meta);
-    if(cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig});
+function cacheBaseSave(){try{localStorage.setItem(K+'-base',JSON.stringify(localBase))}catch(e){}}
+function cacheBaseLoad(){try{return JSON.parse(localStorage.getItem(K+'-base')||'null')}catch(e){return null}}
 
-    for(let i=0;i<ops.length;i+=450){
-      const batch=db.batch(),chunk=ops.slice(i,i+450);
-      chunk.forEach(op=>{
-        if(op.type==='set'){
-          batch.set(db.collection(op.col).doc(op.id),{
-            ...op.data,
-            _updatedAtMs:localEditAt||Date.now(),
-            _clientId:CLIENT_ID
-          });
-        }else if(op.type==='delete'){
-          batch.delete(db.collection(op.col).doc(op.id));
-        }else{
-          batch.set(db.collection('settings').doc('app'),metaData(),{merge:true});
-        }
-      });
-      await batch.commit();
-      chunk.forEach(op=>{
-        if(op.type==='set')cloudShadow[op.col][op.id]=stable(op.data);
-        else if(op.type==='delete')delete cloudShadow[op.col][op.id];
-        else cloudShadow.meta=op.sig;
-      });
-    }
-
-    localPending=false;
-    cloudDirty=false;
-    localStorage.setItem(K+'-pending','0');
-    localStorage.setItem(K+'-last-cloud-save',String(Date.now()));
-    setCloudState('online');
-  }catch(err){
-    console.error(err);
-    localPending=true;
-    cloudDirty=true;
-    cacheSave();
-    setCloudState('error');
-    toast('Belum tersimpan ke server. Data tetap aman di HP dan akan dicoba ulang otomatis.',5000);
-  }finally{
-    cloudWriting=false;
-    if(cloudDirty){
-      clearTimeout(cloudTimer);
-      cloudTimer=setTimeout(syncCloud,700);
+function liveDocs(){const docs={customers:{},orders:{},trips:{},ships:{}};S.customers.forEach(x=>docs.customers[x.id]=cloudOrder(x));S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=cloudOrder(x));Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=cloudOrder(x));return docs}
+function markLocalChanges(now){
+  const docs=liveDocs();
+  for(const col of Object.keys(docs)){
+    for(const [id,data] of Object.entries(docs[col])){
+      const before=localBase[col][id];
+      if(!before || stable(before)!==stable(data)) data._updatedAtMs=now;
+      else if(before._updatedAtMs!=null) data._updatedAtMs=before._updatedAtMs;
     }
   }
+  return docs;
 }
-function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>cloudShadow[col][d.id]=stable(cloudOrder(d.data())))}
-function cloudObjects(col){const out=[];Object.keys(cloudShadow[col]).forEach(id=>{try{out.push(JSON.parse(cloudShadow[col][id]))}catch(e){}});return out}
+function buildOps(){
+  const docs=markLocalChanges(localEditAt||Date.now()),ops=[];
+  for(const col of ['customers','orders','trips','ships']){
+    const now=docs[col],base=localBase[col];
+    for(const [id,data] of Object.entries(now)){
+      const sig=stable(data);
+      if(cloudShadow[col][id]!==sig)ops.push({type:'set',col,id,data,sig,ts:Number(data._updatedAtMs||localEditAt||Date.now())});
+    }
+    // Only create tombstones for records that were present in the last authoritative
+    // local/server baseline and were explicitly removed by this device.
+    for(const id of Object.keys(base)) if(!(id in now)){
+      const ts=localEditAt||Date.now();
+      const tomb={_deleted:true,_updatedAtMs:ts,_clientId:CLIENT_ID};
+      ops.push({type:'set',col,id,data:tomb,sig:stable(tomb),ts});
+    }
+  }
+  const metaSig=stable(metaPlain());
+  if(localBase.meta!==metaSig || cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig,ts:localEditAt||Date.now()});
+  return ops;
+}
+function save(){
+  localEditAt=Date.now();localPending=true;cacheSave();cloudDirty=true;
+  if(!cloudReady||cloudWriting)return;
+  clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,40)
+}
+function currentDocs(){return {...liveDocs(),meta:metaPlain()}}
+
+async function syncCloud(){
+  if(!cloudReady||cloudWriting||!serverSnapshotReady)return;
+  cloudWriting=true;cloudDirty=false;setCloudState('saving');
+  try{
+    const ops=buildOps();
+    for(let i=0;i<ops.length;i+=80){
+      const chunk=ops.slice(i,i+80);
+      for(const op of chunk){
+        if(op.type==='meta'){
+          await db.runTransaction(async tx=>{
+            const ref=db.collection('settings').doc('app');
+            const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote.updatedAtMs||0);
+            if(op.ts>=rts){tx.set(ref,{...metaData(),updatedAtMs:op.ts,clientId:CLIENT_ID},{merge:true})}
+          });
+        }else{
+          await db.runTransaction(async tx=>{
+            const ref=db.collection(op.col).doc(op.id);const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote._updatedAtMs||0);
+            if(op.ts>=rts){
+              tx.set(ref,{...op.data,_updatedAtMs:op.ts,_clientId:CLIENT_ID});
+            }
+          });
+        }
+      }
+    }
+    // Refresh local baseline from the latest server snapshots before declaring the
+    // local write complete. A stale device can no longer erase newer server data.
+    localPending=false;cloudDirty=false;localStorage.setItem(K+'-pending','0');localStorage.setItem(K+'-last-cloud-save',String(Date.now()));setCloudState('online');
+  }catch(err){console.error(err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');toast('Belum tersimpan ke server. Data tetap aman di HP dan akan dicoba ulang otomatis.',5000)}
+  finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,700)}}
+}
+function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>{const x=d.data();if(x&&x._deleted)cloudShadow[col][d.id]=stable(x);else cloudShadow[col][d.id]=stable(cloudOrder(x))})}
+function cloudObjects(col){const out=[];Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(!x._deleted){delete x._updatedAtMs;delete x._clientId;out.push(x)}}catch(e){}});return out}
+function rawCloudObjects(col){const out={};Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(x&&!x._deleted)out[id]=x}catch(e){}});return out}
+function snapshotObjects(snap){const out=[];snap.forEach(d=>{const x=d.data();if(x&&!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out.push(y)}});return out}
+function snapshotMap(snap){const out={};snap.forEach(d=>{const x=d.data();if(x&&!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out[d.id]=y}});return out}
 function applyMeta(snap){if(!snap.exists)return;const x=snap.data()||{};cloudMetaCache=x;if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
 function cloudError(err){console.error(err);setCloudState('error');localPending=true;cacheSave();toast('Firebase gagal tersambung/menyimpan. Data lokal tetap dipertahankan.',7000)}
+
+function mergePendingWithServer(){
+  const previous=cacheBaseLoad();
+  if(!previous)return false;
+  const current=liveDocs(),server=rawCloudObjects;
+  const merged={customers:{},orders:{},trips:{},ships:{}};
+  for(const col of Object.keys(merged)){
+    const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server(col)||{})]);
+    ids.forEach(id=>{
+      const old=previous[col]?.[id], loc=current[col]?.[id], srv=server(col)?.[id];
+      const oldClean=old?{...old}:null, locClean=loc?{...loc}:null, srvClean=srv?{...srv}:null;
+      const changed=stable(oldClean)!==stable(locClean);
+      if(changed) merged[col][id]=locClean;
+      else if(srvClean) merged[col][id]={...srvClean};
+    });
+  }
+  S.customers=Object.values(merged.customers);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;
+  const oldMeta=previous.meta||'', localMeta=stable(metaPlain());
+  if(oldMeta===localMeta && cloudMetaCache) applyMeta({exists:true,data:()=>cloudMetaCache});
+  return true;
+}
+async function cloudTick(){
+  if(!Object.values(initialCloud).every(Boolean)||!serverSnapshotReady)return;
+  if(!cloudBooted){
+    cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
+    const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0);
+    const hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;
+    if(hasCloudData && (!localPending || pendingMs<=cloudMs)){
+      S.customers=cloudObjects('customers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships={};Object.keys(cloudShadow.ships).forEach(id=>{try{const x=JSON.parse(cloudShadow.ships[id]);if(!x._deleted){delete x._updatedAtMs;delete x._clientId;S.ships[id]=x}}catch(e){}});applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false;
+    }else if(localPending){
+      // Device has unsynced local edits: merge only those local changes onto the
+      // newest server snapshot. New records from other devices are preserved.
+      mergePendingWithServer();
+      toast('Menggabungkan perubahan HP dengan data server terbaru…',3000);
+    }
+    ensureTrip();
+    for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());
+    cacheBaseSave();
+    await migrateLegacyPhotos();cloudReady=true;
+    if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}
+  }else if(!localPending){
+    // Real-time server update: merge the authoritative snapshot, not the local cache.
+    S.customers=snapshotObjects(window.__snapCustomers);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});
+    for(const col of ['customers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render();
+  }
+}
+function handleCloudSnapshot(col,s){
+  window['__snap'+col.charAt(0).toUpperCase()+col.slice(1)]=s;
+  if(!s.metadata.fromCache)initialCloud[col]=true;
+  shadowCollection(col,s);cloudTick();
+}
+function startCloud(){if(cloudStarted)return;cloudStarted=true;
+  db.collection('customers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('customers',s),cloudError);
+  db.collection('orders').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('orders',s),cloudError);
+  db.collection('trips').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('trips',s),cloudError);
+  db.collection('ships').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('ships',s),cloudError);
+  db.collection('settings').doc('app').onSnapshot({includeMetadataChanges:true},s=>{cloudMetaCache=s.exists?s.data():null;if(!s.metadata.fromCache){initialCloud.meta=true;serverSnapshotReady=true}if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';cloudTick()},cloudError)
+}
+auth.onAuthStateChanged(user=>{if(user){setCloudState('connecting');startCloud()}});
+auth.signInAnonymously().catch(err=>{console.error(err);setCloudState('error');localPending=true;cacheSave();toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render()});
+addEventListener('online',()=>{if(localPending&&cloudReady){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,100)}});
+addEventListener('beforeunload',()=>cacheSave());
 async function photoBlob(dataUrl){return await (await fetch(dataUrl)).blob()}
 async function uploadPhoto(orderId,dataUrl){const ref=storage.ref().child('orders/'+orderId+'/photo.jpg');await ref.put(await photoBlob(dataUrl),{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});return {url:await ref.getDownloadURL(),path:ref.fullPath}}
 async function deletePhoto(path){if(!path)return;try{await storage.ref(path).delete()}catch(e){if(e&&e.code!=='storage/object-not-found')console.warn(e)}}
 async function migrateLegacyPhotos(){const legacy=S.orders.filter(o=>typeof o.photo==='string'&&o.photo.startsWith('data:'));if(!legacy.length)return;for(const o of legacy){try{const r=await uploadPhoto(o.id,o.photo);o.photo=r.url;o.photoPath=r.path;cacheSave()}catch(e){console.error(e);toast('Ada foto lama yang belum berhasil dipindahkan ke Storage.',5000)}}}
+function mergePendingWithServer(){
+  const previous=cacheBaseLoad();
+  if(!previous)return false;
+  const current=liveDocs(),server=rawCloudObjects;
+  const merged={customers:{},orders:{},trips:{},ships:{}};
+  for(const col of Object.keys(merged)){
+    const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server(col)||{})]);
+    ids.forEach(id=>{
+      const old=previous[col]?.[id], loc=current[col]?.[id], srv=server(col)?.[id];
+      const oldClean=old?{...old}:null, locClean=loc?{...loc}:null, srvClean=srv?{...srv}:null;
+      const changed=stable(oldClean)!==stable(locClean);
+      if(changed) merged[col][id]=locClean;
+      else if(srvClean) merged[col][id]={...srvClean};
+    });
+  }
+  S.customers=Object.values(merged.customers);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;
+  const oldMeta=previous.meta||'', localMeta=stable(metaPlain());
+  if(oldMeta===localMeta && cloudMetaCache) applyMeta({exists:true,data:()=>cloudMetaCache});
+  return true;
+}
 async function cloudTick(){if(!Object.values(initialCloud).every(Boolean))return;if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
   const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0);
   const pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0);
