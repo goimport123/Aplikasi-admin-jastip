@@ -99,134 +99,42 @@ try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 const K='jastip-v1';
 const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',kp:[],trips:[],tripId:'',view:'cur'});
 let S=def();
-function loadCache(){try{const x=JSON.parse(localStorage.getItem(K)||'null');if(x)S=Object.assign(def(),x)}catch(e){}}
+let localPending=false;
+function loadCache(){
+  try{
+    const x=JSON.parse(localStorage.getItem(K)||'null');
+    if(x)S=Object.assign(def(),x);
+    localPending=localStorage.getItem(K+'-pending')==='1';
+  }catch(e){}
+}
 loadCache();
-const localBackup=JSON.parse(JSON.stringify(S));
 let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null,cloudDirty=false,cloudState='connecting',cloudStarted=false;
 let initialCloud={customers:false,orders:false,trips:false,ships:false,meta:false};
 const cloudShadow={customers:{},orders:{},trips:{},ships:{},meta:''};
 
 function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOString():v)}
-function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,
-  pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1}}
+function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,filter:S.filter,pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,kp:S.kp,tripId:S.tripId,view:S.view,v2:S.v2||1}}
 function metaData(){return {...metaPlain(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
-function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Firebase tersambung':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Firebase bermasalah':'☁ Menghubungkan…'}
-function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S))}catch(e){}}
-
-function save(){
-  cacheSave();
-  if(!cloudReady){cloudDirty=true;return}
-  if(cloudWriting){cloudDirty=true;return}
-  clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,250);
-}
-
-function currentDocs(){
-  const docs={customers:{},orders:{},trips:{},ships:{},meta:metaPlain()};
-  S.customers.forEach(x=>docs.customers[x.id]=x);
-  S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));
-  S.trips.forEach(x=>docs.trips[x.id]=x);
-  Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=x);
-  return docs;
-}
+function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Tersimpan di Firebase':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Belum tersimpan':'☁ Menghubungkan…'}
+function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S));localStorage.setItem(K+'-pending',localPending?'1':'0');localStorage.setItem(K+'-pending-ts',String(Date.now()))}catch(e){toast('Penyimpanan HP gagal. Browser ini mungkin memblokir localStorage.',7000)}}
+function save(){localPending=true;cacheSave();cloudDirty=true;if(!cloudReady||cloudWriting)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,150)}
+function currentDocs(){const docs={customers:{},orders:{},trips:{},ships:{},meta:metaPlain()};S.customers.forEach(x=>docs.customers[x.id]=x);S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=x);Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=x);return docs}
 function cloudOrder(o){const x={...o};if(typeof x.photo==='string'&&x.photo.startsWith('data:'))x.photo='';return x}
-
-async function syncCloud(){
-  if(!cloudReady||cloudWriting)return;
-  cloudWriting=true;cloudDirty=false;setCloudState('saving');
-  try{
-    const docs=currentDocs(),ops=[];
-    for(const col of ['customers','orders','trips','ships']){
-      const now=docs[col],old=cloudShadow[col];
-      for(const [id,data] of Object.entries(now)){
-        const sig=stable(data);
-        if(old[id]!==sig)ops.push({type:'set',col,id,data,sig});
-      }
-      for(const id of Object.keys(old)){
-        if(!(id in now))ops.push({type:'delete',col,id});
-      }
-    }
-    const metaSig=stable(docs.meta);
-    if(cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig});
-    if(ops){
-      for(let i=0;i<ops.length;i+=450){
-        const batch=db.batch(),chunk=ops.slice(i,i+450);
-        chunk.forEach(op=>{
-          if(op.type==='set')batch.set(db.collection(op.col).doc(op.id),op.data);
-          else if(op.type==='delete')batch.delete(db.collection(op.col).doc(op.id));
-          else batch.set(db.collection('settings').doc('app'),metaData(),{merge:true});
-        });
-        await batch.commit();
-        chunk.forEach(op=>{
-          if(op.type==='set')cloudShadow[op.col][op.id]=op.sig;
-          else if(op.type==='delete')delete cloudShadow[op.col][op.id];
-          else cloudShadow.meta=op.sig;
-        });
-      }
-    }
-    setCloudState('online');
-  }catch(err){
-    console.error(err);cloudDirty=true;setCloudState('error');toast('Gagal menyimpan ke Firebase. Data tetap tersimpan di perangkat; coba lagi saat koneksi pulih.',6000);
-  }finally{
-    cloudWriting=false;
-    if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,300)}
-  }
-}
-function applyMeta(snap){
-  if(!snap.exists)return;
-  const x=snap.data()||{};
-  if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;
-  ['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]});
-}
-function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>cloudShadow[col][d.id]=stable(cloudOrder(d.data())));}
-function cloudError(err){console.error(err);setCloudState('error');toast('Firebase belum tersambung. Cek Anonymous Authentication, Firestore Rules, Storage Rules, dan koneksi internet.',7000)}
-
+async function syncCloud(){if(!cloudReady||cloudWriting)return;cloudWriting=true;cloudDirty=false;setCloudState('saving');try{const docs=currentDocs(),ops=[];for(const col of ['customers','orders','trips','ships']){const now=docs[col],old=cloudShadow[col];for(const [id,data] of Object.entries(now)){const sig=stable(data);if(old[id]!==sig)ops.push({type:'set',col,id,data,sig})}for(const id of Object.keys(old)){if(!(id in now))ops.push({type:'delete',col,id})}}const metaSig=stable(docs.meta);if(cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig});for(let i=0;i<ops.length;i+=450){const batch=db.batch(),chunk=ops.slice(i,i+450);chunk.forEach(op=>{if(op.type==='set')batch.set(db.collection(op.col).doc(op.id),op.data);else if(op.type==='delete')batch.delete(db.collection(op.col).doc(op.id));else batch.set(db.collection('settings').doc('app'),metaData(),{merge:true})});await batch.commit();chunk.forEach(op=>{if(op.type==='set')cloudShadow[op.col][op.id]=op.sig;else if(op.type==='delete')delete cloudShadow[op.col][op.id];else cloudShadow.meta=op.sig})}
+const after=stable(currentDocs());if(after===stable(docs)){localPending=false;cloudDirty=false;localStorage.setItem(K+'-pending','0');setCloudState('online')}else{localPending=true;cloudDirty=true;cacheSave()}}catch(err){console.error(err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');toast('Perubahan belum tersimpan ke Firebase. Data tetap ada di HP dan akan dicoba lagi.',6000)}finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,300)}}}
+function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>cloudShadow[col][d.id]=stable(cloudOrder(d.data())))}
+function applyMeta(snap){if(!snap.exists)return;const x=snap.data()||{};if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
+function cloudError(err){console.error(err);setCloudState('error');localPending=true;cacheSave();toast('Firebase gagal tersambung/menyimpan. Data lokal tetap dipertahankan.',7000)}
 async function photoBlob(dataUrl){return await (await fetch(dataUrl)).blob()}
-async function uploadPhoto(orderId,dataUrl){
-  const ref=storage.ref().child('orders/'+orderId+'/photo.jpg');
-  await ref.put(await photoBlob(dataUrl),{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});
-  return {url:await ref.getDownloadURL(),path:ref.fullPath};
-}
+async function uploadPhoto(orderId,dataUrl){const ref=storage.ref().child('orders/'+orderId+'/photo.jpg');await ref.put(await photoBlob(dataUrl),{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});return {url:await ref.getDownloadURL(),path:ref.fullPath}}
 async function deletePhoto(path){if(!path)return;try{await storage.ref(path).delete()}catch(e){if(e&&e.code!=='storage/object-not-found')console.warn(e)}}
-async function migrateLegacyPhotos(){
-  const legacy=S.orders.filter(o=>typeof o.photo==='string'&&o.photo.startsWith('data:'));
-  if(!legacy.length)return;
-  setCloudState('saving');
-  for(const o of legacy){
-    try{const r=await uploadPhoto(o.id,o.photo);o.photo=r.url;o.photoPath=r.path;cacheSave();}
-    catch(e){console.error(e);toast('Ada foto lama yang belum berhasil dipindahkan ke Storage.',5000)}
-  }
-}
-
-async function cloudTick(){
-  if(!Object.values(initialCloud).every(Boolean))return;
-  if(!cloudBooted){
-    cloudBooted=true;
-    const cloudEmpty=!S.customers.length&&!S.orders.length&&!S.trips.length&&!Object.keys(S.ships||{}).length;
-    const localHadData=localBackup.customers.length||localBackup.orders.length||localBackup.trips.length||Object.keys(localBackup.ships||{}).length;
-    if(cloudEmpty&&localHadData){S=Object.assign(def(),localBackup)}
-    ensureTrip();
-    S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});
-    if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}
-    await migrateLegacyPhotos();
-    cloudReady=true;cloudDirty=true;await syncCloud();
-  }
-  cacheSave();render();
-}
-
-function startCloud(){
-  if(cloudStarted)return;cloudStarted=true;
-  db.collection('customers').onSnapshot(s=>{initialCloud.customers=true;S.customers=s.docs.map(d=>d.data());shadowCollection('customers',s);cloudTick()},cloudError);
-  db.collection('orders').onSnapshot(s=>{initialCloud.orders=true;S.orders=s.docs.map(d=>d.data());shadowCollection('orders',s);cloudTick()},cloudError);
-  db.collection('trips').onSnapshot(s=>{initialCloud.trips=true;S.trips=s.docs.map(d=>d.data());shadowCollection('trips',s);cloudTick()},cloudError);
-  db.collection('ships').onSnapshot(s=>{initialCloud.ships=true;S.ships={};s.forEach(d=>S.ships[d.id]=d.data());shadowCollection('ships',s);cloudTick()},cloudError);
-  db.collection('settings').doc('app').onSnapshot(s=>{initialCloud.meta=true;applyMeta(s);cloudShadow.meta=s.exists?stable(metaPlain()):'';cloudTick()},cloudError);
-}
-
-auth.onAuthStateChanged(user=>{
-  if(user){setCloudState('connecting');startCloud()}
-});
-auth.signInAnonymously().catch(err=>{console.error(err);setCloudState('error');toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render()});
-
+async function migrateLegacyPhotos(){const legacy=S.orders.filter(o=>typeof o.photo==='string'&&o.photo.startsWith('data:'));if(!legacy.length)return;for(const o of legacy){try{const r=await uploadPhoto(o.id,o.photo);o.photo=r.url;o.photoPath=r.path;cacheSave()}catch(e){console.error(e);toast('Ada foto lama yang belum berhasil dipindahkan ke Storage.',5000)}}}
+async function cloudTick(){if(!Object.values(initialCloud).every(Boolean))return;if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}if(localPending)toast('Memulihkan perubahan terakhir dari HP…',3000);await migrateLegacyPhotos();cloudReady=true;cloudDirty=true;await syncCloud()}cacheSave();render()}
+function startCloud(){if(cloudStarted)return;cloudStarted=true;db.collection('customers').onSnapshot(s=>{initialCloud.customers=true;if(!cloudBooted){shadowCollection('customers',s)}else if(!localPending){S.customers=s.docs.map(d=>d.data());shadowCollection('customers',s)}cloudTick()},cloudError);db.collection('orders').onSnapshot(s=>{initialCloud.orders=true;if(!cloudBooted){shadowCollection('orders',s)}else if(!localPending){S.orders=s.docs.map(d=>d.data());shadowCollection('orders',s)}cloudTick()},cloudError);db.collection('trips').onSnapshot(s=>{initialCloud.trips=true;if(!cloudBooted){shadowCollection('trips',s)}else if(!localPending){S.trips=s.docs.map(d=>d.data());shadowCollection('trips',s)}cloudTick()},cloudError);db.collection('ships').onSnapshot(s=>{initialCloud.ships=true;if(!cloudBooted){shadowCollection('ships',s)}else if(!localPending){S.ships={};s.forEach(d=>S.ships[d.id]=d.data());shadowCollection('ships',s)}cloudTick()},cloudError);db.collection('settings').doc('app').onSnapshot(s=>{initialCloud.meta=true;if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';else if(!localPending){applyMeta(s);cloudShadow.meta=stable(metaPlain())}cloudTick()},cloudError)}
+auth.onAuthStateChanged(user=>{if(user){setCloudState('connecting');startCloud()}});
+auth.signInAnonymously().catch(err=>{console.error(err);setCloudState('error');localPending=true;cacheSave();toast('Login Firebase gagal. Aktifkan Anonymous Authentication di Firebase Console.',9000);render()});
+addEventListener('online',()=>{if(localPending&&cloudReady){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,100)}});
+addEventListener('beforeunload',()=>cacheSave());
 const $=s=>document.querySelector(s),uid=()=>Math.random().toString(36).slice(2,9);
 const e=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const idr=n=>'Rp '+Math.round(n).toLocaleString('id-ID');
