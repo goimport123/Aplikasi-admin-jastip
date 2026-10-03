@@ -63,7 +63,43 @@ input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px s
 .primary{width:100%;background:var(--acc);color:#fff;font-weight:800;min-height:50px;margin-top:6px}
 .toast{position:fixed;left:12px;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;z-index:9;max-width:536px;margin:auto}
 .warn{background:#fff3c4;color:#5b4700;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px}.savehint{font-size:11px;color:var(--mute)}
-.empty{text-align:center;color:var(--mute);padding:40px 10px}.customer-toolbar{position:sticky;top:68px;z-index:18;background:var(--bg);padding:4px 0 8px}.customer-toolbar .primary{margin-top:0}.customer-search{margin-top:7px}.customer-count{font-size:11px;color:var(--mute);padding:5px 2px 0}
+.empty{text-align:center;color:var(--mute);padding:40px 10px}
+/* Layout tab Pesanan: header + filter tetap, hanya daftar order yang scroll */
+body.orders-lock{overflow:hidden}
+body.orders-lock main{height:calc(100dvh - var(--head-h,78px) - var(--nav-h,68px));overflow:hidden}
+body.orders-lock #m{height:100%;display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.orders-toolbar{flex:0 0 auto;background:var(--bg);padding-bottom:4px;z-index:4}
+.orders-scroll{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0 1px 18px;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:thin}
+.orders-scroll .order-group-title{position:sticky;top:0}
+
+/* Rekap trip ringkas */
+.trip-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ink);color:var(--bg);border-radius:14px;padding:11px 13px;margin:8px 0}
+.trip-hero .trip-profit{font-size:21px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.trip-hero .trip-caption{font-size:11px;opacity:.72;margin-bottom:3px}
+.trip-hero .trip-meta{font-size:11px;opacity:.78;text-align:right}
+.trip-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:7px 0 10px}
+.trip-stat{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:7px 8px;min-width:0}
+.trip-stat .ico{font-size:14px;line-height:1;margin-bottom:4px}
+.trip-stat .lbl{font-size:9px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-stat b{display:block;font-size:12px;line-height:1.2;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-section-title{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 6px}
+.trip-section-title h2{margin:0;font-size:14px}
+.trip-section-title .fx{font-size:10px}
+.trip-customer{display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 9px;margin:5px 0}
+.trip-customer .avatar{width:24px;height:24px;border-radius:50%;background:var(--soft);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:var(--ink)}
+.trip-customer .name{font-size:12px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.trip-customer .detail{font-size:9px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.trip-customer .profit{text-align:right;font-size:12px;font-weight:800;white-space:nowrap}
+.trip-customer .profit small{display:block;font-size:9px;color:var(--mute);font-weight:600}
+.trip-mini-bar{height:3px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:4px}
+.trip-mini-bar i{display:block;height:100%;background:var(--ok);border-radius:99px}
+.trip-recap{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 10px;font-size:11px;line-height:1.45}
+.trip-recap-row{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed var(--line)}
+.trip-recap-row:last-child{border-bottom:0}
+.trip-recap-row b{font-size:11px;text-align:right}
+.trip-history .card{padding:9px 10px;margin:6px 0;border-radius:11px}
+@media(max-width:430px){.trip-stat-grid{grid-template-columns:repeat(2,1fr)}.trip-hero .trip-profit{font-size:19px}}
+.customer-toolbar{position:sticky;top:68px;z-index:18;background:var(--bg);padding:4px 0 8px}.customer-toolbar .primary{margin-top:0}.customer-search{margin-top:7px}.customer-count{font-size:11px;color:var(--mute);padding:5px 2px 0}
 .found{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;cursor:zoom-in;border:1px solid var(--line)}
 .big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--soft);margin-top:6px}
@@ -291,17 +327,20 @@ const paid=list.reduce((s,o)=>s+paidOf(o),0);return{n:list.length,nb:b.length,re
 
 function render(){
 sortCustomers();
+document.body.classList.toggle('orders-lock',S.tab==='q');
 $('#tn').textContent=vname()+(S.view!=='all'&&vid()!==S.tripId?' (ditutup)':'');const s=stat(vo());$('#ts').textContent=vo().length+' pesanan · untung '+rb(s.m);
 document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
 $('#fab').style.display=(S.tab==='c'||S.tab==='p')?'none':'';
-$('#m').innerHTML=S.tab==='q'?vQ():S.tab==='p'?vP():S.tab==='c'?vC():vD();}
+$('#m').innerHTML=S.tab==='q'?vQ():S.tab==='p'?vP():S.tab==='c'?vC():vD();
+requestAnimationFrame(()=>{const h=document.querySelector('header')?.getBoundingClientRect().height||78,n=document.querySelector('.nav')?.getBoundingClientRect().height||68;document.documentElement.style.setProperty('--head-h',h+'px');document.documentElement.style.setProperty('--nav-h',n+'px')});
+}
 
 function vQ(){
 const cn=i=>vo().filter(o=>i<0||o.status===i).length;
-let h=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`+`<div class="row" style="margin:4px 0 8px;align-items:center"><label style="margin:0;flex:1;font-size:12px;color:var(--mute)">Kelompokkan berdasarkan</label><select id="order-group" style="width:auto;min-width:175px;min-height:40px"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`;
+const toolbar=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`+`<div class="row" style="margin:4px 0 8px;align-items:center"><label style="margin:0;flex:1;font-size:12px;color:var(--mute)">Kelompokkan berdasarkan</label><select id="order-group" style="width:auto;min-width:175px;min-height:40px"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`;
 const q=(S.q||'').toLowerCase();
 const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q)));
-if(!L.length)return h+`<div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div>`;
+if(!L.length)return `<div class="orders-page"><div class="orders-toolbar">${toolbar}</div><div class="orders-scroll"><div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div></div></div>`;
 const keyOf=o=>S.orderGroup==='name'?((cust(o.cid).name||'Tanpa nama').trim()||'Tanpa nama'):S.orderGroup==='item'?((o.item||'Tanpa nama pesanan').trim()||'Tanpa nama pesanan'):orderDateOf(o);
 const labelOf=k=>S.orderGroup==='date'?fmtOrderDate(k):k;
 const cmp=(a,b)=>S.orderGroup==='date'?b.localeCompare(a):a.localeCompare(b,'id',{sensitivity:'base'});
@@ -317,7 +356,7 @@ return `<div class="card order-card"><div class="row">${o.photo?`<img class="thu
 ${c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o.status))}">WA</a>`:''}
 <button data-eo="${o.id}" aria-label="Ubah">⋯</button></div></div>`}).join('')+'</div>';
 }).join('');
-return h+htmlGroup;
+return `<div class="orders-page"><div class="orders-toolbar">${toolbar}</div><div class="orders-scroll">${htmlGroup}</div></div>`;
 }
 function vC(){
 const q=(S.cq||'').trim().toLowerCase();
@@ -349,24 +388,38 @@ function topCat(){const m={};vo().filter(bought).forEach(o=>m[o.cat]=(m[o.cat]||
 function summary(){const s=stat(vo()),bc=byCust().sort((a,b)=>b.rev-a.rev)[0];
 return `✈️ Rekap ${vname()}\n\nPesanan dibeli: ${s.nb} dari ${s.n}\nSudah Done (terkirim): ${vo().filter(o=>o.status===5).length}\nOmzet: ${idr(s.rev)}\nModal: ${idr(s.c)}\nUntung bersih: ${idr(s.m)}${s.rev?' ('+(s.m/s.rev*100).toFixed(1).replace('.',',')+'%)':''}\nUang masuk: ${idr(s.paid)}\nBelum dibayar: ${idr(s.out)}\nPelanggan teratas: ${bc&&bc.rev?bc.c.name+' ('+rb(bc.rev)+')':'-'}\nKategori terlaris: ${topCat()}`}
 
-function vD(){const s=stat(vo()),bc=byCust().sort((a,b)=>b.rev-a.rev),mx=Math.max(1,...bc.map(x=>x.rev));
+function vD(){
+const s=stat(vo()),bc=byCust().sort((a,b)=>b.m-a.m||b.rev-a.rev),mx=Math.max(1,...bc.map(x=>x.rev));
 const used=[...new Set(vo().map(o=>o.cur).concat(S.trip.cur))];
+const initials=n=>(String(n||'?').trim().charAt(0)||'?').toUpperCase();
+const pct=s.rev?Math.max(0,Math.min(100,s.m/s.rev*100)):0;
 return `${tripBar()}${S.ratesAt?'':'<div class="warn">Kurs masih angka perkiraan. Cek & isi kurs asli di bawah sebelum mulai belanja ya.</div>'}
-<div class="hero"><span class="sub" style="color:inherit;opacity:.75">Untung bersih (barang yang sudah dibeli)</span><b>${idr(s.m)}</b>
-<span style="opacity:.8">Omzet ${idr(s.rev)} − modal ${idr(s.c)}</span></div>
-<div class="grid"><div class="card"><span class="fx">Total pesanan</span><b>${s.n} <span class="fx">(${s.nb} dibeli)</span></b></div>
-<div class="card"><span class="fx">Uang masuk</span><b>${idr(s.paid)}</b></div>
-<div class="card"><span class="fx">Belum dibayar</span><b style="color:var(--hi)">${idr(s.out)}</b></div>
-<div class="card"><span class="fx">Masih dicari/belum dibeli</span><b>${idr(s.wait)}</b></div></div>
-<h2>Per pelanggan</h2>${bc.length?bc.map(x=>`<div class="card"><div class="row"><span class="who">${e(x.c.name)}</span><span><b>${idr(x.rev)}</b></span></div>
-<div class="fx">${x.n} pesanan · untung ${rb(x.m)}${x.out>0?' · utang '+rb(x.out):''}</div><div class="bar"><i style="width:${x.rev/mx*100}%"></i></div></div>`).join(''):'<div class="sub">Belum ada data.</div>'}
-<h2>Kurs (Rp per 1 mata uang)</h2><div class="card">${used.map(c=>`<label>${c}</label><input inputmode="decimal" data-r="${c}" value="${S.rates[c]??''}">`).join('')}
-<button class="primary" style="background:var(--ink);color:var(--bg)" id="live">Coba ambil kurs terbaru</button>
-<div class="fx" style="margin-top:6px">${S.ratesAt?'Terakhir diatur: '+S.ratesAt:'Belum pernah diatur'}. Kurs tiap pesanan dikunci saat dicatat, jadi ganti kurs nggak mengubah pesanan lama.</div></div>
-<h2>Akhir trip</h2><pre>${e(summary())}</pre>
-<div class="acts"><a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(summary())}" style="flex:1">Bagikan ke WA</a><button id="bak">Simpan cadangan</button></div>
-<input type="file" id="imp" accept=".json,application/json" hidden><button style="width:100%;margin-top:8px" data-imp="1">Pulihkan dari cadangan</button>
-${histTrips()}${S.view==='all'||vid()!==S.tripId?'':`<button class="primary" style="background:var(--soft);color:var(--ink);margin-top:10px" id="newtrip">Tutup trip (cutoff)</button><div class="fx" style="margin-top:6px">Cutoff cuma menutup trip ini dan membuka trip baru. Pesanan, pembayaran, dan resi kargo tetap tersimpan, dan trip lama bisa dibuka lagi kapan saja.</div>`}`}
+<div class="trip-hero"><div><div class="trip-caption">💰 UNTUNG BERSIH</div><div class="trip-profit">${idr(s.m)}</div><div class="trip-caption" style="margin-top:3px">Omzet ${idr(s.rev)} · Margin ${pct.toFixed(1).replace('.',',')}%</div></div><div class="trip-meta">✈️ ${e(vname())}<br>📦 ${s.nb}/${s.n} dibeli</div></div>
+<div class="trip-stat-grid">
+<div class="trip-stat"><div class="ico">📦</div><div class="lbl">Pesanan</div><b>${s.n}</b></div>
+<div class="trip-stat"><div class="ico">🛒</div><div class="lbl">Dibeli</div><b>${s.nb}</b></div>
+<div class="trip-stat"><div class="ico">💵</div><div class="lbl">Uang masuk</div><b>${idr(s.paid)}</b></div>
+<div class="trip-stat"><div class="ico">⚠️</div><div class="lbl">Belum bayar</div><b style="color:var(--hi)">${idr(s.out)}</b></div></div>
+<div class="trip-section-title"><h2>👥 Keuntungan per pelanggan</h2><span class="fx">${bc.length} pelanggan</span></div>
+${bc.length?bc.map(x=>`<div class="trip-customer"><div class="avatar">${e(initials(x.c.name))}</div><div style="min-width:0"><div class="name">${e(x.c.name||'Tanpa nama')}</div><div class="detail">${x.n} pesanan · omzet ${idr(x.rev)}${x.out>0?' · utang '+rb(x.out):''}</div><div class="trip-mini-bar"><i style="width:${x.rev/mx*100}%"></i></div></div><div class="profit">${idr(x.m)}<small>untung</small></div></div>`).join(''):'<div class="sub">Belum ada data pelanggan.</div>'}
+<div class="trip-section-title"><h2>📊 Rekap trip</h2><span class="fx">Ringkas</span></div>
+<div class="trip-recap">
+<div class="trip-recap-row"><span>🛍️ Dibeli</span><b>${s.nb} dari ${s.n} pesanan</b></div>
+<div class="trip-recap-row"><span>🚚 Selesai / Done</span><b>${vo().filter(o=>o.status===5).length} pesanan</b></div>
+<div class="trip-recap-row"><span>💰 Omzet</span><b>${idr(s.rev)}</b></div>
+<div class="trip-recap-row"><span>🏷️ Modal</span><b>${idr(s.c)}</b></div>
+<div class="trip-recap-row"><span>📈 Untung bersih</span><b>${idr(s.m)}</b></div>
+<div class="trip-recap-row"><span>⏳ Belum dibayar</span><b>${idr(s.out)}</b></div>
+<div class="trip-recap-row"><span>🏆 Kategori terlaris</span><b>${e(topCat())}</b></div>
+</div>
+<h2 style="font-size:13px;margin-top:12px">💱 Kurs</h2><div class="card" style="padding:8px 10px">${used.map(c=>`<label style="margin:5px 0 3px">${c}</label><input inputmode="decimal" data-r="${c}" value="${S.rates[c]??''}" style="min-height:40px">`).join('')}
+<button class="primary" style="background:var(--ink);color:var(--bg);min-height:42px;margin-top:8px" id="live">↻ Coba ambil kurs terbaru</button>
+<div class="fx" style="margin-top:6px">${S.ratesAt?'Terakhir diatur: '+S.ratesAt:'Belum pernah diatur'}. Kurs tiap pesanan dikunci saat dicatat.</div></div>
+<div class="trip-section-title"><h2>🧾 Akhir trip</h2><span class="fx">Siap dibagikan</span></div>
+<div class="trip-recap"><div class="trip-recap-row"><span>Pelanggan teratas</span><b>${bc[0]?e(bc[0].c.name)+' · '+rb(bc[0].m):'-'}</b></div><div class="trip-recap-row"><span>Hasil margin</span><b>${pct.toFixed(1).replace('.',',')}%</b></div></div>
+<div class="acts" style="margin-top:7px"><a class="wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(summary())}" style="flex:1">📤 Bagikan</a><button id="bak">💾 Cadangan</button></div>
+<input type="file" id="imp" accept=".json,application/json" hidden><button style="width:100%;margin-top:7px;min-height:40px" data-imp="1">↩ Pulihkan cadangan</button>
+<div class="trip-history">${histTrips()}</div>${S.view==='all'||vid()!==S.tripId?'':`<button class="primary" style="background:var(--soft);color:var(--ink);margin-top:10px;min-height:42px" id="newtrip">Tutup trip (cutoff)</button><div class="fx" style="margin-top:6px">Cutoff menutup trip ini dan membuka trip baru. Data lama tetap tersimpan.</div>`}`}
 
 function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct',finalPrice:'',orderDate:localDateInput()};
 let photo=o.photo||'';
@@ -454,10 +507,8 @@ function tripBar(){if(S.trips.length<2)return '';const cur=S.view||'cur';
 const o=[['cur','Trip aktif: '+S.trip.name]].concat(S.trips.filter(t=>t.closedAt).map(t=>[t.id,t.name+' (ditutup)']),[['all','Semua trip']]);
 return `<select data-tv="1" aria-label="Pilih trip" style="margin:6px 0">${o.map(([v,l])=>`<option value="${e(v)}" ${v===cur?'selected':''}>${e(l)}</option>`).join('')}</select>`}
 function histTrips(){const cl=S.trips.filter(t=>t.closedAt);if(!cl.length)return '';
-return '<h2>Trip yang sudah ditutup</h2>'+cl.slice().reverse().map(t=>{const os=S.orders.filter(o=>o.tripId===t.id),x=stat(os),rs=[...new Set(os.map(o=>o.resi).filter(Boolean))],open=rs.filter(r=>(S.ships[r]||{}).st!==3).length,pend=os.filter(o=>o.status<5).length;
-return `<div class="card"><div class="row"><div class="who">${e(t.name)}</div><span class="fx">ditutup ${new Date(t.closedAt).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})}</span></div>
-<div class="fx">${os.length} pesanan · omzet ${rb(x.rev)} · untung ${rb(x.m)}<br>Belum dibayar ${rb(x.out)} · belum Done ${pend} pesanan · kargo masih jalan ${open} resi</div>
-<div class="acts" style="margin-top:10px"><button class="go" data-tv="${t.id}">Buka trip</button><button data-dtrip="${t.id}" style="color:var(--hi)">Hapus</button></div></div>`}).join('')}
+return '<div class="trip-section-title"><h2>🗂️ Trip yang sudah ditutup</h2><span class="fx">'+cl.length+' trip</span></div>'+cl.slice().reverse().map(t=>{const os=S.orders.filter(o=>o.tripId===t.id),x=stat(os),rs=[...new Set(os.map(o=>o.resi).filter(Boolean))],open=rs.filter(r=>(S.ships[r]||{}).st!==3).length,pend=os.filter(o=>o.status<5).length;
+return `<div class="card"><div class="row"><div class="who">${e(t.name)}</div><span class="fx">${new Date(t.closedAt).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'})}</span></div><div class="fx" style="margin-top:3px">📦 ${os.length} · 💰 ${rb(x.rev)} · 📈 ${rb(x.m)} · 💳 ${rb(x.out)} · ⏳ ${pend} · 🚚 ${open}</div><div class="acts" style="margin-top:6px"><button class="go" data-tv="${t.id}" style="min-height:34px">Buka trip</button><button data-dtrip="${t.id}" style="min-height:34px;color:var(--hi)">Hapus</button></div></div>`}).join('')}
 function vKp(L){const todo=L.filter(o=>!o.packed),done=L.length-todo.length,pc=L.length?Math.round(done/L.length*100):0;
 S.kp=S.kp.filter(id=>todo.some(o=>o.id===id));
 let h=`<div class="hero"><span style="opacity:.75">Progress koper</span><b>${done} / ${L.length} barang (${pc}%)</b><div class="bar"><i style="width:${pc}%;background:var(--sun)"></i></div></div>`;
