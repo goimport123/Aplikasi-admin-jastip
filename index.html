@@ -9,7 +9,7 @@
 *,*::before,*::after{box-sizing:inherit}
 html{height:100%;-webkit-text-size-adjust:100%;touch-action:pan-x pan-y;scroll-padding-top:env(safe-area-inset-top,0px)}
 body{touch-action:pan-x pan-y;margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 'Plus Jakarta Sans',system-ui,sans-serif;padding-bottom:calc(84px + env(safe-area-inset-bottom,0px))}
-header{padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+header{padding:14px 16px 6px;display:flex;justify-content:space-between;align-items:center;gap:8px;position:sticky;top:0;z-index:20;background:var(--bg);box-shadow:0 1px 0 transparent}
 h1{font-size:20px;font-weight:800;margin:0;letter-spacing:-.02em}
 h2{font-size:16px;font-weight:800;margin:20px 0 8px}
 .sub{color:var(--mute);font-size:13px}
@@ -21,17 +21,17 @@ main{padding:0 14px;max-width:560px;margin:0 auto}
 .chip{flex:none;min-height:36px;padding:0 12px;border-radius:99px;background:var(--card);border:1px solid var(--line)}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin:10px 0}
-.orders-list{padding-bottom:8px}.order-card{padding:6px 8px;margin:5px 0;border-radius:12px}.order-card .thumb{width:46px;height:46px}.order-card .price{font-size:14px}.order-card .steps{gap:3px;margin-top:5px}.order-card .steps button{min-height:27px;padding:0 5px;font-size:9px;border-radius:8px}.order-card .acts{gap:4px;margin-top:5px}.order-card .acts button,.order-card .acts .wa{min-height:31px;padding:0 9px;font-size:11px}
+.orders-list{padding-bottom:8px}.order-card{padding:5px 7px;margin:4px 0;border-radius:10px}.order-card .thumb{width:40px;height:40px}.order-card .price{font-size:14px}.order-card .steps{gap:3px;margin-top:5px}.order-card .steps button{min-height:27px;padding:0 5px;font-size:9px;border-radius:8px}.order-card .acts{gap:4px;margin-top:5px}.order-card .acts button,.order-card .acts .wa{min-height:31px;padding:0 9px;font-size:11px}
 .order-card .row{gap:7px}
 .order-card .who{font-size:13px}
 .order-card .item{font-size:14px;line-height:1.25}
 .order-card .fx{font-size:11px;line-height:1.3}
 .order-card .price{font-size:14px}
-.order-card .thumb{width:44px;height:44px;border-radius:8px}
-.order-card .steps{gap:3px;margin:6px 0 5px}
+.order-card .thumb{width:40px;height:40px;border-radius:7px}
+.order-card .steps{gap:2px;margin:4px 0 4px}
 .order-card .steps button{min-height:25px;font-size:9px;border-radius:7px}
 .order-card .acts{gap:5px}
-.order-card .acts button,.order-card .acts .wa{min-height:34px;padding:0 9px;border-radius:9px;font-size:12px}
+.order-card .acts button,.order-card .acts .wa{min-height:30px;padding:0 8px;border-radius:8px;font-size:11px}
 .row{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
 .who{font-weight:800}.item{font-size:16px;font-weight:600}
 .price{font-weight:800;font-size:17px;text-align:right}
@@ -62,8 +62,8 @@ input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px s
 .prev{background:var(--soft);border-radius:12px;padding:10px 12px;margin:12px 0;font-weight:600}
 .primary{width:100%;background:var(--acc);color:#fff;font-weight:800;min-height:50px;margin-top:6px}
 .toast{position:fixed;left:12px;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;z-index:9;max-width:536px;margin:auto}
-.warn{background:#fff3c4;color:#5b4700;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px}
-.empty{text-align:center;color:var(--mute);padding:40px 10px}
+.warn{background:#fff3c4;color:#5b4700;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px}.savehint{font-size:11px;color:var(--mute)}
+.empty{text-align:center;color:var(--mute);padding:40px 10px}.customer-toolbar{position:sticky;top:68px;z-index:18;background:var(--bg);padding:4px 0 8px}.customer-toolbar .primary{margin-top:0}.customer-search{margin-top:7px}.customer-count{font-size:11px;color:var(--mute);padding:5px 2px 0}
 .found{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 .thumb{width:56px;height:56px;border-radius:10px;object-fit:cover;flex:none;cursor:zoom-in;border:1px solid var(--line)}
 .big{width:100%;max-height:260px;object-fit:contain;border-radius:12px;background:var(--soft);margin-top:6px}
@@ -99,7 +99,7 @@ try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 const K='jastip-v2';
 const CLIENT_ID=(localStorage.getItem(K+'-client')||('c-'+Math.random().toString(36).slice(2,10))).toString();
 localStorage.setItem(K+'-client',CLIENT_ID);
-const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',kp:[],trips:[],tripId:'',view:'cur'});
+const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',cq:'',kp:[],trips:[],tripId:'',view:'cur'});
 let S=def();
 let localPending=false;
 let localEditAt=Number(localStorage.getItem(K+'-edit-at')||0);
@@ -121,7 +121,7 @@ function metaPlain(){return {trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history
 function metaData(){return {...metaPlain(),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}}
 function setCloudState(state){cloudState=state;const el=$('#cs');if(el)el.textContent=state==='online'?'☁ Tersimpan & sinkron':state==='saving'?'☁ Menyimpan…':state==='error'?'☁ Belum tersimpan':'☁ Menghubungkan…'}
 function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S));localStorage.setItem(K+'-pending',localPending?'1':'0');localStorage.setItem(K+'-pending-ts',String(Date.now()));localStorage.setItem(K+'-edit-at',String(localEditAt||0))}catch(e){toast('Penyimpanan HP gagal. Browser ini mungkin memblokir localStorage.',7000)}}
-function save(){localEditAt=Date.now();localPending=true;cacheSave();cloudDirty=true;if(!cloudReady||cloudWriting)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,120)}
+function save(){localEditAt=Date.now();localPending=true;cacheSave();cloudDirty=true;if(!cloudReady||cloudWriting)return;clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,20)}
 function currentDocs(){const docs={customers:{},orders:{},trips:{},ships:{},meta:metaPlain()};S.customers.forEach(x=>docs.customers[x.id]=x);S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=x);Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=x);return docs}
 function rebuildFromCloud(){
   if(!cloudMetaCache && !Object.values(cloudShadow).some(v=>Object.keys(v).length)) return false;
@@ -129,7 +129,69 @@ function rebuildFromCloud(){
   return true;
 }
 function cloudOrder(o){const x={...o};if(typeof x.photo==='string'&&x.photo.startsWith('data:'))x.photo='';return x}
-async function syncCloud(){if(!cloudReady||cloudWriting)return;cloudWriting=true;cloudDirty=false;setCloudState('saving');try{const docs=currentDocs(),ops=[];for(const col of ['customers','orders','trips','ships']){const now=docs[col],old=cloudShadow[col];for(const [id,data] of Object.entries(now)){const sig=stable(data);if(old[id]!==sig)ops.push({type:'set',col,id,data,sig})}for(const id of Object.keys(old)){if(!(id in now))ops.push({type:'delete',col,id})}}const metaSig=stable(docs.meta);if(cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig});for(let i=0;i<ops.length;i+=450){const batch=db.batch(),chunk=ops.slice(i,i+450);chunk.forEach(op=>{if(op.type==='set')batch.set(db.collection(op.col).doc(op.id),op.data);else if(op.type==='delete')batch.delete(db.collection(op.col).doc(op.id));else batch.set(db.collection('settings').doc('app'),metaData(),{merge:true})});await batch.commit();chunk.forEach(op=>{if(op.type==='set')cloudShadow[op.col][op.id]=op.sig;else if(op.type==='delete')delete cloudShadow[op.col][op.id];else cloudShadow.meta=op.sig})}const after=stable(currentDocs());if(after===stable(docs)){localPending=false;cloudDirty=false;cloudMetaCache={...(cloudMetaCache||{}),updatedAtMs:localEditAt,clientId:CLIENT_ID};localStorage.setItem(K+'-pending','0');setCloudState('online')}else{localPending=true;cloudDirty=true;cacheSave()}}catch(err){console.error(err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');toast('Perubahan belum tersimpan ke Firebase. Data tetap ada di HP dan akan dicoba lagi.',6000)}finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,300)}}}
+async function syncCloud(){
+  if(!cloudReady||cloudWriting)return;
+  cloudWriting=true;
+  cloudDirty=false;
+  setCloudState('saving');
+  try{
+    const docs=currentDocs(),ops=[];
+    for(const col of ['customers','orders','trips','ships']){
+      const now=docs[col],old=cloudShadow[col];
+      for(const [id,data] of Object.entries(now)){
+        const sig=stable(data);
+        if(old[id]!==sig)ops.push({type:'set',col,id,data,sig});
+      }
+      for(const id of Object.keys(old)){
+        if(!(id in now))ops.push({type:'delete',col,id});
+      }
+    }
+    const metaSig=stable(docs.meta);
+    if(cloudShadow.meta!==metaSig)ops.push({type:'meta',sig:metaSig});
+
+    for(let i=0;i<ops.length;i+=450){
+      const batch=db.batch(),chunk=ops.slice(i,i+450);
+      chunk.forEach(op=>{
+        if(op.type==='set'){
+          batch.set(db.collection(op.col).doc(op.id),{
+            ...op.data,
+            _updatedAtMs:localEditAt||Date.now(),
+            _clientId:CLIENT_ID
+          });
+        }else if(op.type==='delete'){
+          batch.delete(db.collection(op.col).doc(op.id));
+        }else{
+          batch.set(db.collection('settings').doc('app'),metaData(),{merge:true});
+        }
+      });
+      await batch.commit();
+      chunk.forEach(op=>{
+        if(op.type==='set')cloudShadow[op.col][op.id]=stable(op.data);
+        else if(op.type==='delete')delete cloudShadow[op.col][op.id];
+        else cloudShadow.meta=op.sig;
+      });
+    }
+
+    localPending=false;
+    cloudDirty=false;
+    localStorage.setItem(K+'-pending','0');
+    localStorage.setItem(K+'-last-cloud-save',String(Date.now()));
+    setCloudState('online');
+  }catch(err){
+    console.error(err);
+    localPending=true;
+    cloudDirty=true;
+    cacheSave();
+    setCloudState('error');
+    toast('Belum tersimpan ke server. Data tetap aman di HP dan akan dicoba ulang otomatis.',5000);
+  }finally{
+    cloudWriting=false;
+    if(cloudDirty){
+      clearTimeout(cloudTimer);
+      cloudTimer=setTimeout(syncCloud,700);
+    }
+  }
+}
 function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>cloudShadow[col][d.id]=stable(cloudOrder(d.data())))}
 function cloudObjects(col){const out=[];Object.keys(cloudShadow[col]).forEach(id=>{try{out.push(JSON.parse(cloudShadow[col][id]))}catch(e){}});return out}
 function applyMeta(snap){if(!snap.exists)return;const x=snap.data()||{};cloudMetaCache=x;if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','kp','tripId','view','v2'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
@@ -219,9 +281,13 @@ ${c.wa?`<a class="wa" target="_blank" rel="noopener" href="${waLink(c.wa,msg(o,o
 <button data-eo="${o.id}" aria-label="Ubah">⋯</button></div></div>`}).join('')+'</div>'}
 
 function vC(){
+const q=(S.cq||'').trim().toLowerCase();
+const list=S.customers.filter(c=>!q||(c.name+' '+(c.wa||'')+' '+(c.notes||'')).toLowerCase().includes(q));
 const add='<button class="primary" data-ec="">+ Pelanggan baru</button>';
-if(!S.customers.length)return add+'<div class="empty">Belum ada pelanggan. Tambah dulu biar gampang pas catat titipan.</div>';
-return add+S.customers.map(c=>{const os=S.orders.filter(o=>o.cid===c.id),t=stat(os);
+const toolbar=`<div class="customer-toolbar">${add}<input id="cqs" class="customer-search" placeholder="Cari nama pelanggan…" value="${e(S.cq||'')}" autocomplete="off"><div class="customer-count">${list.length} dari ${S.customers.length} pelanggan</div></div>`;
+if(!S.customers.length)return toolbar+'<div class="empty">Belum ada pelanggan. Tambah dulu biar gampang pas catat titipan.</div>';
+if(!list.length)return toolbar+'<div class="empty">Pelanggan dengan nama tersebut tidak ditemukan.</div>';
+return toolbar+list.map(c=>{const os=S.orders.filter(o=>o.cid===c.id),t=stat(os);
 return `<div class="card"><div class="row"><div><div class="who">${e(c.name)}</div><div class="fx">${e(c.wa||'belum ada nomor WA')}</div></div>
 <div style="text-align:right"><div class="fx">${os.length} pesanan</div>${t.out>0?`<span class="tag utang">Utang ${rb(t.out)}</span>`:os.length?'<span class="tag lunas">Beres</span>':''}</div></div>
 ${c.notes?`<div style="margin-top:6px">${e(c.notes)}</div>`:''}<div class="acts" style="margin-top:10px"><button data-ec="${c.id}" style="flex:1">Ubah</button>
@@ -393,7 +459,7 @@ async function savePdf(r){if(!window.jspdf)return toast('Pembuat PDF belum termu
 try{const b=pdfBlob(r,S.pdfPrice!==false),fn='packing-list-'+r.replace(/[^\w-]+/g,'_')+'.pdf';
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
 catch(er){if(er&&er.code==='declined')return;toast('PDF gagal dibuat, coba lagi ya',4000)}}
-addEventListener('input',ev=>{if(ev.target.id==='qs'){S.q=ev.target.value;render();const el=$('#qs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}});
+addEventListener('input',ev=>{if(ev.target.id==='qs'){S.q=ev.target.value;render();const el=$('#qs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}else if(ev.target.id==='cqs'){S.cq=ev.target.value;render();const el=$('#cqs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}});
 addEventListener('change',ev=>{const t=ev.target,d=t.dataset,f=id=>S.orders.find(x=>x.id===id);
 if(d.pkd){f(d.pkd).packed=t.checked;save();render()}else if(d.pm){f(d.pm).pm=t.value;save();render()}
 else if(d.kp){S.kp=t.checked?S.kp.concat(d.kp):S.kp.filter(x=>x!==d.kp);render()}else if(d.tv){S.view=t.value;S.filter=-1;save();render()}else if(d.pick){S.pick=t.checked?S.pick.concat(d.pick):S.pick.filter(x=>x!==d.pick);save();render()}
@@ -413,7 +479,7 @@ if(id)$('#c-del').onclick=()=>{const b=$('#c-del');if(S.orders.some(o=>o.cid===i
 async function deleteTrip(id){
 const t=S.trips.find(x=>x.id===id);
 if(!t)return;
-if(!t.closedAt){toast('Trip aktif tidak bisa dihapus. Tutup trip dulu.',3500);return}
+if(!t.closedAt){toast('Trip aktif tidak bisa dihapus. Tutup trip dulu agar aman.',3500);return}
 const os=S.orders.filter(o=>o.tripId===id);
 const resis=[...new Set(os.map(o=>o.resi).filter(Boolean))];
 if(!confirm(`Hapus trip "${t.name}" beserta ${os.length} pesanan di dalamnya? Data ini tidak bisa dikembalikan kecuali dari file cadangan.`))return;
