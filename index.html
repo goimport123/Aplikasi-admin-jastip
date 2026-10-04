@@ -325,28 +325,13 @@ function mergePendingWithServer(){const previous=cacheBaseLoad();if(!previous)re
 async function uploadPhoto(orderId,dataUrl){
   if(!dataUrl||!String(dataUrl).startsWith('data:image/'))throw new Error('Foto tidak valid');
   if(!auth.currentUser)await auth.signInAnonymously();
-  if(!auth.currentUser)throw new Error('AUTH_REQUIRED');
-  const res=await fetch(dataUrl);
-  if(!res.ok)throw new Error('Gagal membaca foto hasil kompresi');
-  const blob=await res.blob();
-  if(!blob||!blob.size)throw new Error('Foto kosong');
   const path='orders/'+orderId+'/'+Date.now()+'.jpg';
   const ref=storage.ref().child(path);
-  const metadata={contentType:'image/jpeg',cacheControl:'public,max-age=31536000'};
-  let lastErr=null;
-  for(let attempt=1;attempt<=3;attempt++){
-    try{
-      await ref.put(blob,metadata);
-      const url=await ref.getDownloadURL();
-      if(!url)throw new Error('URL foto kosong');
-      await ref.getMetadata();
-      return {url,path,size:blob.size};
-    }catch(err){
-      lastErr=err;
-      if(attempt<3)await new Promise(r=>setTimeout(r,500*attempt));
-    }
-  }
-  throw lastErr||new Error('Upload foto gagal');
+  // Upload langsung sebagai data_url hasil kompresi. Ini lebih stabil di HP
+  // daripada fetch(dataUrl)->Blob, terutama pada browser mobile.
+  await ref.putString(dataUrl,'data_url',{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});
+  const url=await ref.getDownloadURL();
+  return {url,path};
 }
 async function photoUrlToDataUrl(url,path){
   if(!url)return null;
@@ -355,10 +340,7 @@ async function photoUrlToDataUrl(url,path){
   // bergantung pada URL download lama.
   let bytes=null;
   if(path){
-    try{bytes=await storage.ref().child(path).getBytes(5*1024*1024)}catch(e){
-      console.warn('getBytes foto gagal',e);
-      try{url=await storage.ref().child(path).getDownloadURL()}catch(x){console.warn('getDownloadURL foto gagal',x)}
-    }
+    try{bytes=await storage.ref().child(path).getBytes(5*1024*1024)}catch(e){console.warn('getBytes foto gagal',e)}
   }
   if(bytes){
     let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
@@ -475,7 +457,7 @@ const groups={};L.forEach(o=>{const k=keyOf(o);(groups[k]||(groups[k]=[])).push(
 const htmlGroup=Object.entries(groups).sort((a,b)=>cmp(a[0],b[0])).map(([g,items])=>{
 items.sort((a,b)=>S.orderGroup==='date'?((b.ts||0)-(a.ts||0)):(keyOf(a).localeCompare(keyOf(b),'id',{sensitivity:'base'})||(b.ts||0)-(a.ts||0)));
 return `<div class="order-group"><div class="order-group-title"><span>${e(labelOf(g))}</span><span class="fx">${items.length} pesanan</span></div>`+items.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
-return `<div class="card order-card"><div class="row">${o.photo?`<img class="thumb" src="${e(o.photo)}" data-z="${o.id}" loading="lazy" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
+return `<div class="card order-card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
 <div class="fx">Order: ${fmtOrderDate(orderDateOf(o))} · ${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
 <div><div class="price">${idr(sell(o))}</div><div style="text-align:right">${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:32px;padding:0 10px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sebagian · sisa '+rb(sisa(o)):'Belum bayar'}</button>`:''}</div></div></div>
 <div class="steps">${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}">${t}</button>`).join('')}</div>
@@ -604,27 +586,23 @@ if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur
 else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
 S.trip.cur=cur;if(!finalPrice){S.trip.markup=d.markup;S.trip.mt=d.mt}save();close();render();
 if(newPhotoIsData){
-   toast('Pesanan tersimpan. Mengunggah foto…',5000);
-   try{
-     const r=await uploadPhoto(orderId,photo);
-     const x=S.orders.find(z=>z.id===orderId);
-     if(x){
-       const previousPath=x.photoPath;
-       x.photo=r.url;x.photoPath=r.path;
-       cacheSave();
-       render();
-       save();
-       if(cloudReady){cloudDirty=true;await syncCloud()}
-       if(previousPath&&previousPath!==r.path){try{await deletePhoto(previousPath)}catch(err){console.warn('Foto lama gagal dihapus',err)}}
-       toast('Foto tersimpan & tersinkron ✔',3000);
-     }
-   }catch(err){
-     console.error('uploadPhoto',err);
-     const code=err&&err.code?` (${err.code})`:'';
-     toast('Pesanan tersimpan, tetapi foto gagal diunggah'+code+'. Pastikan Firebase Storage Rules mengizinkan user Anonymous.',8000);
-   }
- }
- else if(old&&oldPhoto&&!photo){
+  toast('Pesanan tersimpan. Mengompres & mengunggah foto…',5000);
+  try{
+    const r=await uploadPhoto(orderId,photo);
+    const x=S.orders.find(z=>z.id===orderId);
+    if(x){
+      const previousPath=x.photoPath;
+      x.photo=r.url;x.photoPath=r.path;save();render();
+      if(previousPath&&previousPath!==r.path){try{await deletePhoto(previousPath)}catch(err){console.warn('Foto lama gagal dihapus',err)}}
+      toast('Foto tersimpan & sudah dikompres ✔',3000);
+    }
+  }catch(err){
+    console.error('uploadPhoto',err);
+    const code=err&&err.code?` (${err.code})`:'';
+    toast('Pesanan tersimpan, tetapi foto gagal diunggah'+code+'. Coba pilih foto lagi; detail ada di Console.',8000);
+  }
+}
+else if(old&&oldPhoto&&!photo){
   try{await deletePhoto(oldPath)}catch(err){console.warn('Foto gagal dihapus',err)}
   if(old){old.photoPath='';save();render()}
 }
@@ -650,7 +628,7 @@ if(!L.length)return h+`<div class="empty">${bo.length?'Semua barang sudah masuk 
 const g={};L.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
 const cb='style="width:22px;min-height:22px"',lb='style="margin:0;display:flex;gap:6px;align-items:center"';
 h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>{const kg=(o.pm||'kargo')==='kargo';
-return `<div class="row" style="margin-top:10px;align-items:center">${o.photo?`<img class="thumb" src="${e(o.photo)}" data-z="${o.id}" loading="lazy" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div>
+return `<div class="row" style="margin-top:10px;align-items:center">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div>
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;align-items:center"><label ${lb}><input type="checkbox" ${cb} data-pkd="${o.id}" ${o.packed?'checked':''}>Sudah dipacking</label>
 <select data-pm="${o.id}" style="width:auto;min-height:36px"><option value="kargo" ${kg?'selected':''}>Kargo</option><option value="koper" ${kg?'':'selected'}>Koper</option></select>
 ${kg?`<label ${lb}><input type="checkbox" ${cb} data-pick="${o.id}" ${S.pick.includes(o.id)?'checked':''}>Masuk resi</label>`:''}</div></div></div>`}).join('')+'</div>').join('');
@@ -667,7 +645,7 @@ let h=`<div class="hero"><span style="opacity:.75">Progress koper</span><b>${don
 if(!L.length)return h+'<div class="empty">Belum ada barang yang dibawa lewat koper.<br>Pilih <b>Dibawa lewat → Koper</b> di pesanan.</div>';
 if(todo.length)h+=`<button data-kpall="1" style="width:100%">${S.kp.length===todo.length?'Batal pilih semua':'Pilih semua yang belum dipacking'}</button>`;
 const g={};L.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
-h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>`<div class="row" style="margin-top:10px;align-items:center">${o.photo?`<img class="thumb" src="${e(o.photo)}" data-z="${o.id}" loading="lazy" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div></div>
+h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>`<div class="row" style="margin-top:10px;align-items:center">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div></div>
 ${o.packed?`<div style="text-align:right"><span class="tag lunas">Sudah dipacking ✓</span><br><button data-kpundo="${o.id}" style="min-height:32px;margin-top:4px;font-size:12px">Batal</button></div>`:`<label style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" style="width:24px;min-height:24px" data-kp="${o.id}" ${S.kp.includes(o.id)?'checked':''}>Pilih</label>`}</div>`).join('')+'</div>').join('');
 return h+(S.kp.length?`<button class="primary" data-kpok="1" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3;box-shadow:0 4px 14px rgba(0,0,0,.25)">Submit sudah dipacking (${S.kp.length})</button>`:'')}
 function vK(k){if(!k.length)return '<div class="empty">Belum ada resi kargo.<br>Pilih barang kargo di tab <b>Perlu dipacking</b>, lalu <b>Buat resi</b>.</div>';
