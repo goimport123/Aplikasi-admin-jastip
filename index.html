@@ -267,7 +267,7 @@ function metaPlain(){
     tripId:S.tripId,view:S.view,v2:S.v2||1,orderGroup:S.orderGroup||'date',orderSort:S.orderSort||'newest'
   };
 }
-function metaData(ts){return {...metaPlain(),updatedAtMs:ts,clientId:CLIENT_ID}}
+function metaData(ts){return firestoreSafe({...metaPlain(),updatedAtMs:ts,clientId:CLIENT_ID})}
 function logicalMeta(x){
   if(!x)return null;
   return {
@@ -296,6 +296,32 @@ function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S));localStorage.
 function cacheBaseSave(){try{localStorage.setItem(K+'-base',JSON.stringify(localBase))}catch(e){}}
 function cacheBaseLoad(){try{return JSON.parse(localStorage.getItem(K+'-base')||'null')}catch(e){return null}}
 function cloudOrder(x){const y={...(x||{})};delete y._updatedAtMs;delete y._clientId;return y}
+function cleanForFirestore(v,seen){
+  // Firestore menolak undefined (invalid-argument). Data lama dari versi
+  // sebelumnya bisa memiliki properti undefined, jadi bersihkan hanya nilai
+  // yang memang tidak dapat ditulis tanpa mengubah mekanisme penyimpanan.
+  if(v===undefined)return undefined;
+  if(v===null||typeof v==='string'||typeof v==='number'||typeof v==='boolean')return v;
+  if(v instanceof Date)return v;
+  if(typeof firebase!=='undefined'&&firebase.firestore&&firebase.firestore.Timestamp&&v instanceof firebase.firestore.Timestamp)return v;
+  if(typeof v==='object'){
+    seen=seen||new WeakSet();
+    if(seen.has(v))return undefined;
+    seen.add(v);
+    if(Array.isArray(v)){
+      const a=[];for(const item of v){const c=cleanForFirestore(item,seen);a.push(c===undefined?null:c)}
+      return a;
+    }
+    const o={};
+    for(const [k,val] of Object.entries(v)){
+      const c=cleanForFirestore(val,seen);
+      if(c!==undefined)o[k]=c;
+    }
+    return o;
+  }
+  return undefined;
+}
+function firestoreSafe(v){const x=cleanForFirestore(v);return x===undefined?{}:x}
 function liveDocs(){const docs={customers:{},sellers:{},cargos:{},orders:{},trips:{},ships:{}};S.customers.forEach(x=>docs.customers[x.id]=cloudOrder(x));S.sellers.forEach(x=>docs.sellers[x.id]=cloudOrder(x));S.cargos.forEach(x=>docs.cargos[x.id]=cloudOrder(x));S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=cloudOrder(x));Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=cloudOrder(x));return docs}
 function markLocalChanges(now){const docs=liveDocs();for(const col of Object.keys(docs)){for(const [id,data] of Object.entries(docs[col])){const before=localBase[col][id];if(!before||stable(before)!==stable(data))data._updatedAtMs=now;else if(before._updatedAtMs!=null)data._updatedAtMs=before._updatedAtMs;data._clientId=CLIENT_ID}}return docs}
 function buildOps(){
@@ -338,9 +364,9 @@ async function syncCloud(){
   if(!cloudReady||cloudWriting||!serverSnapshotReady)return;
   // Jangan pernah mengirim snapshot lokal sebelum semua koleksi awal dari
   // server selesai diterima. Ini mencegah device baru menimpa data lama.
-cloudWriting=true;cloudDirty=false;setCloudState('saving');try{const ops=buildOps();for(const op of ops){if(op.type==='meta'){await db.runTransaction(async tx=>{const ref=db.collection('settings').doc('app');const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote.updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...metaData(op.ts),updatedAt:firebase.firestore.FieldValue.serverTimestamp()},{merge:true})})}else{await db.runTransaction(async tx=>{const ref=db.collection(op.col).doc(op.id);const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote._updatedAtMs||0);if(op.ts>=rts)tx.set(ref,{...op.data,_updatedAtMs:op.ts,_clientId:CLIENT_ID})})}}
+cloudWriting=true;cloudDirty=false;setCloudState('saving');try{const ops=buildOps();for(const op of ops){if(op.type==='meta'){await db.runTransaction(async tx=>{const ref=db.collection('settings').doc('app');const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote.updatedAtMs||0);if(op.ts>=rts)tx.set(ref,firestoreSafe({...metaData(op.ts),updatedAt:firebase.firestore.FieldValue.serverTimestamp()}),{merge:true})})}else{await db.runTransaction(async tx=>{const ref=db.collection(op.col).doc(op.id);const snap=await tx.get(ref);const remote=snap.exists?snap.data():{};const rts=Number(remote._updatedAtMs||0);if(op.ts>=rts)tx.set(ref,firestoreSafe({...op.data,_updatedAtMs:op.ts,_clientId:CLIENT_ID}))})}}
 localPending=false;cloudDirty=false;localStorage.setItem(K+'-pending','0');localStorage.setItem(K+'-last-cloud-save',String(Date.now()));setCloudState('online');
-}catch(err){console.error('syncCloud',err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');const code=err&&err.code?` (${err.code})`:'';toast('Gagal menyimpan ke server'+code+'. Data tetap aman di HP dan akan dicoba ulang.',7000)}finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,1200)}}}
+}catch(err){console.error('syncCloud',err);localPending=true;cloudDirty=true;cacheSave();setCloudState('error');const code=err&&err.code?` (${err.code})`:'';toast('Gagal menyimpan ke server'+code+(err&&err.message?' · '+String(err.message).slice(0,140):'')+'. Data tetap aman di HP dan akan dicoba ulang.',9000)}finally{cloudWriting=false;if(cloudDirty){clearTimeout(cloudTimer);cloudTimer=setTimeout(syncCloud,1200)}}}
 function shadowCollection(col,snap){cloudShadow[col]={};snap.forEach(d=>{const x=d.data()||{};cloudShadow[col][d.id]=stable(x)})}
 function cloudObjects(col){const out=[];Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(x&&!x._deleted){delete x._updatedAtMs;delete x._clientId;out.push(x)}}catch(e){}});return out}
 function rawCloudRecords(col){const out={};Object.keys(cloudShadow[col]).forEach(id=>{try{const x=JSON.parse(cloudShadow[col][id]);if(x)out[id]=x}catch(e){}});return out}
