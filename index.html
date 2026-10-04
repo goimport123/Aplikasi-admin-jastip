@@ -252,8 +252,8 @@ loadCache();
 S.sellers=Array.isArray(S.sellers)?S.sellers:[];S.cargos=Array.isArray(S.cargos)?S.cargos:[];S.sq=S.sq||'';S.cqg=S.cqg||'';S.settingsView=S.settingsView||'home';
 let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null,cloudDirty=false,cloudState='connecting',cloudStarted=false;
 let initialCloud={customers:false,sellers:false,cargos:false,orders:false,trips:false,ships:false,meta:false};
-const cloudShadow={customers:{},orders:{},trips:{},ships:{},meta:''};
-const localBase={customers:{},orders:{},trips:{},ships:{},meta:''};
+const cloudShadow={customers:{},sellers:{},cargos:{},orders:{},trips:{},ships:{},meta:''};
+const localBase={customers:{},sellers:{},cargos:{},orders:{},trips:{},ships:{},meta:''};
 let serverSnapshotReady=false;
 
 function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOString():v)}
