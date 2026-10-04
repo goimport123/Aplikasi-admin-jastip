@@ -125,12 +125,12 @@ body.orders-lock #m{
 .orders-scroll::-webkit-scrollbar{width:7px}
 .orders-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:99px}
 
-.orders-toolbar .search-group-row{display:grid;grid-template-columns:minmax(0,1fr) 145px;gap:6px;align-items:center;margin:4px 0 5px}
+.orders-toolbar .search-group-row{display:grid;grid-template-columns:minmax(0,1fr) 118px 118px;gap:6px;align-items:center;margin:4px 0 5px}
 .orders-toolbar .search-group-row input{margin:0!important;min-width:0}
-.orders-toolbar .search-group-row select{width:145px!important;min-width:0!important;margin:0;min-height:38px;height:38px;padding:5px 8px;font-size:12px}
-.orders-toolbar .sort-row{display:flex;justify-content:flex-end;align-items:center;gap:6px;margin:0 0 5px}
-.orders-toolbar .sort-row label{margin:0;font-size:10px;color:var(--mute);white-space:nowrap}
-.orders-toolbar .sort-row select{width:145px;min-height:34px;height:34px;padding:4px 8px;font-size:11px}
+.orders-toolbar .search-group-row select{width:100%!important;min-width:0!important;margin:0;min-height:38px;height:38px;padding:5px 7px;font-size:11px}
+.orders-toolbar .sort-row{display:none}
+.orders-toolbar .sort-row label{display:none}
+.orders-toolbar .sort-row select{display:none}
 
 
 /* Toolbar Pesanan lebih ringkas di HP agar daftar order mendapat ruang lebih besar */
@@ -146,8 +146,8 @@ body.orders-lock #m{
   body.orders-lock .orders-toolbar .muted,
   body.orders-lock .orders-toolbar small{font-size:10px}
   body.orders-lock .orders-toolbar .group-row{gap:6px}
-  body.orders-lock .orders-toolbar .search-group-row{grid-template-columns:minmax(0,1fr) 132px;gap:5px;margin:3px 0 4px}
-  body.orders-lock .orders-toolbar .search-group-row select{width:132px!important;font-size:11px}
+  body.orders-lock .orders-toolbar .search-group-row{grid-template-columns:minmax(0,1fr) 108px 108px;gap:5px;margin:3px 0 4px}
+  body.orders-lock .orders-toolbar .search-group-row select{width:100%!important;font-size:10px}
   body.orders-lock .orders-toolbar .sort-row{margin:0 0 4px}
   body.orders-lock .orders-toolbar .sort-row select{width:132px;font-size:10px}
   body.orders-lock .orders-scroll{padding-bottom:120px}
@@ -408,7 +408,18 @@ const rb=n=>n>=1e6?'Rp '+(n/1e6).toFixed(2).replace(/\.?0+$/,'').replace('.',','
 const num=v=>{const x=parseFloat(String(v).replace(',','.'));return isNaN(x)?0:x};
 const sym=c=>(CUR[c]||[c])[0];
 const fx=(n,c)=>sym(c)+' '+n.toLocaleString('id-ID',{maximumFractionDigits:2});
-const cust=id=>S.customers.find(c=>c.id===id)||{name:'(hapus)',wa:'',notes:''};
+function customerForOrder(o){
+  if(!o)return {id:'',name:'Tanpa nama',wa:'',notes:''};
+  const cid=o.cid??o.customerId??o.pelangganId??o.buyerId??'';
+  const direct=S.customers.find(c=>String(c.id)===String(cid));
+  if(direct)return direct;
+  const embedded=o.customer&&typeof o.customer==='object'?o.customer:null;
+  const name=String(o.customerName??o.buyerName??o.pelangganName??o.namaPelanggan??embedded?.name??embedded?.nama??'').trim();
+  if(name)return {id:cid,name,wa:String(o.customerWa??o.buyerWa??embedded?.wa??'').trim(),notes:''};
+  if(typeof cid==='string' && cid.trim() && /[A-Za-zÀ-ÿ]/.test(cid) && !/^[a-z0-9_-]{8,}$/i.test(cid.trim()))return {id:cid,name:cid.trim(),wa:'',notes:''};
+  return {id:cid,name:'Tanpa nama',wa:'',notes:''};
+}
+const cust=id=>S.customers.find(c=>String(c.id)===String(id))||{name:'Tanpa nama',wa:'',notes:''};
 const cost=o=>o.amt*o.qty*o.rate;
 const mk=o=>{if(num(o.finalPrice)>0)return Math.max(0,num(o.finalPrice)-cost(o));return o.mt==='idr'?o.markup*o.qty:cost(o)*o.markup/100};
 const sell=o=>num(o.finalPrice)>0?Math.round(num(o.finalPrice)):Math.ceil((cost(o)+mk(o))/500)*500;
@@ -473,11 +484,11 @@ function render(){
 
 function vQ(){
 const cn=i=>vo().filter(o=>i<0||o.status===i).length;
-const toolbar=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<div class="search-group-row"><input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}"><select id="order-group" aria-label="Kelompokkan berdasarkan"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`+`<div class="sort-row"><label>Urutan</label><select id="order-sort" aria-label="Urutan pesanan"><option value="newest" ${S.orderSort!=='oldest'?'selected':''}>Terbaru → Terlama</option><option value="oldest" ${S.orderSort==='oldest'?'selected':''}>Terlama → Terbaru</option></select></div>`;
+const toolbar=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<div class="search-group-row"><input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}"><select id="order-group" aria-label="Kelompokkan berdasarkan"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select><select id="order-sort" aria-label="Urutan pesanan"><option value="newest" ${S.orderSort!=='oldest'?'selected':''}>Terbaru → Terlama</option><option value="oldest" ${S.orderSort==='oldest'?'selected':''}>Terlama → Terbaru</option></select></div>`;
 const q=(S.q||'').toLowerCase();
 const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q)));
 if(!L.length)return `<div class="orders-page"><div class="orders-toolbar">${toolbar}</div><div class="orders-scroll"><div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+</b> pas ada yang titip ya!'}</div></div></div>`;
-const keyOf=o=>S.orderGroup==='name'?((cust(o.cid).name||'Tanpa nama').trim()||'Tanpa nama'):S.orderGroup==='item'?((o.item||'Tanpa nama pesanan').trim()||'Tanpa nama pesanan'):orderDateOf(o);
+const keyOf=o=>S.orderGroup==='name'?((customerForOrder(o).name||'Tanpa nama').trim()||'Tanpa nama'):S.orderGroup==='item'?((o.item||'Tanpa nama pesanan').trim()||'Tanpa nama pesanan'):orderDateOf(o);
 const labelOf=k=>S.orderGroup==='date'?fmtOrderDate(k):k;
 const desc=S.orderSort!=='oldest';const cmp=(a,b)=>S.orderGroup==='date'?(desc?b.localeCompare(a):a.localeCompare(b)):a.localeCompare(b,'id',{sensitivity:'base'});
 const groups={};L.forEach(o=>{const k=keyOf(o);(groups[k]||(groups[k]=[])).push(o)});
@@ -519,7 +530,16 @@ toast(`<span>${sisa(o)>0?'Tercatat sebagian ✔ sisa '+rb(sisa(o)):'Lunas ✔'}<
 if(r>0){$('#pf').onclick=()=>apply(r);$('#pp').onclick=()=>{const a=Math.round(num(String($('#pn').value).replace(/\./g,'')));if(a<=0)return toast('Isi nominalnya dulu ya',2500);apply(a)}}
 if(p>0)$('#pz').onclick=()=>{const b=$('#pz');if(!b.dataset.cf){b.dataset.cf=1;return b.textContent='Yakin? Ketuk lagi untuk reset ke Rp 0'}o.paidAmt=0;if(o.status===3)o.status=2;save();close();render()}}
 
-function byCust(){return S.customers.map(c=>({c,...stat(vo().filter(o=>o.cid===c.id))})).filter(x=>x.n)}
+function byCust(){
+  const map=new Map();
+  vo().forEach(o=>{
+    const c=customerForOrder(o), key=String(c.id||c.name||'unknown');
+    let x=map.get(key);
+    if(!x){x={c,n:0,nb:0,rev:0,cost:0,m:0,paid:0,out:0,wait:0};map.set(key,x)}
+    const a=stat([o]);x.n+=a.n;x.nb+=a.nb;x.rev+=a.rev;x.cost+=a.c;x.m+=a.m;x.paid+=a.paid;x.out+=a.out;x.wait+=a.wait;
+  });
+  return [...map.values()].filter(x=>x.n);
+}
 function topCat(){const m={};vo().filter(bought).forEach(o=>m[o.cat]=(m[o.cat]||0)+sell(o));const a=Object.entries(m).sort((x,y)=>y[1]-x[1])[0];return a?a[0]:'-'}
 function summary(){const s=stat(vo()),bc=byCust().sort((a,b)=>b.rev-a.rev)[0];
 return `✈️ Rekap ${vname()}\n\nPesanan dibeli: ${s.nb} dari ${s.n}\nSudah Done (terkirim): ${vo().filter(o=>o.status===5).length}\nOmzet: ${idr(s.rev)}\nModal: ${idr(s.c)}\nUntung bersih: ${idr(s.m)}${s.rev?' ('+(s.m/s.rev*100).toFixed(1).replace('.',',')+'%)':''}\nUang masuk: ${idr(s.paid)}\nBelum dibayar: ${idr(s.out)}\nPelanggan teratas: ${bc&&bc.rev?bc.c.name+' ('+rb(bc.rev)+')':'-'}\nKategori terlaris: ${topCat()}`}
