@@ -142,23 +142,6 @@ body.orders-lock #m{
   body.orders-lock .orders-scroll{padding-bottom:78px}
 }
 
-
-/* Toolbar pesanan: status lebih kecil + pencarian dan filter dalam satu baris */
-.order-toolbar-row{display:flex;gap:6px;align-items:center;margin:4px 0 6px}
-.order-toolbar-row #qs{flex:1 1 auto;min-width:0;margin:0;height:38px;min-height:38px;padding:5px 10px;font-size:13px;border-radius:10px}
-.order-toolbar-row #order-group{flex:0 0 132px;width:132px;min-width:132px;height:38px;min-height:38px;padding:5px 8px;font-size:12px;border-radius:10px}
-@media(max-width:600px){
-  body.orders-lock .orders-toolbar .chips{gap:4px;padding:4px 0;margin:2px 0}
-  body.orders-lock .orders-toolbar .chips .chip{min-height:30px;height:30px;padding:0 9px;font-size:11px;border-radius:16px}
-  body.orders-lock .orders-toolbar .order-toolbar-row{gap:5px;margin:3px 0 5px}
-  body.orders-lock .orders-toolbar .order-toolbar-row #qs{height:36px;min-height:36px;font-size:12px;padding:4px 9px}
-  body.orders-lock .orders-toolbar .order-toolbar-row #order-group{flex-basis:122px;width:122px;min-width:122px;height:36px;min-height:36px;font-size:11px;padding:4px 7px}
-}
-@media(max-width:370px){
-  body.orders-lock .orders-toolbar .order-toolbar-row #order-group{flex-basis:108px;width:108px;min-width:108px}
-  body.orders-lock .orders-toolbar .chips .chip{padding:0 8px;font-size:10px}
-}
-
 /* Rekap trip ringkas */
 .trip-hero{display:flex;align-items:center;justify-content:space-between;gap:12px;background:var(--ink);color:var(--bg);border-radius:14px;padding:11px 13px;margin:8px 0}
 .trip-hero .trip-profit{font-size:21px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
@@ -342,7 +325,9 @@ function mergePendingWithServer(){const previous=cacheBaseLoad();if(!previous)re
 async function uploadPhoto(orderId,dataUrl){
   const path='orders/'+orderId+'/'+Date.now()+'.jpg';
   const ref=storage.ref(path);
-  await ref.putString(dataUrl,'data_url',{contentType:'image/jpeg'});
+  // Upload sebagai Blob JPEG hasil kompresi, bukan data URL mentah.
+  const blob=await (await fetch(dataUrl)).blob();
+  await ref.put(blob,{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});
   const url=await ref.getDownloadURL();
   return {url,path};
 }
@@ -408,7 +393,13 @@ function toast(html,ms=6000){const t=$('#tt');t.innerHTML='<div class="toast">'+
 function sheet(html){$('#ov').innerHTML='<div class="scrim" id="sc"><div class="sheet" role="dialog"><button class="sheet-close" id="sheet-close" aria-label="Batal" title="Batal">×</button>'+html+'</div></div>';$('#sc').onclick=ev=>{if(ev.target.id==='sc'||ev.target.id==='sheet-close')close()}}
 const close=()=>{$('#ov').innerHTML=''};
 function reqStatus(id,i){const o=S.orders.find(x=>x.id===id);if(i===3&&sisa(o)>0)paySheet(id);else setStatus(id,i)}
-function setStatus(id,i){const o=S.orders.find(x=>x.id===id);o.status=i;save();render()}
+function setStatus(id,i){
+  const o=S.orders.find(x=>x.id===id);if(!o)return;
+  const list=document.querySelector('.orders-scroll');
+  const scrollTop=list?list.scrollTop:0;
+  o.status=i;save();render();
+  requestAnimationFrame(()=>{const next=document.querySelector('.orders-scroll');if(next)next.scrollTop=scrollTop;});
+}
 function stat(list){const b=list.filter(bought),rev=b.reduce((s,o)=>s+sell(o),0),c=b.reduce((s,o)=>s+cost(o),0);
 const paid=list.reduce((s,o)=>s+paidOf(o),0);return{n:list.length,nb:b.length,rev,c,m:rev-c,paid,out:b.reduce((s,o)=>s+sisa(o),0),wait:list.filter(o=>!bought(o)).reduce((s,o)=>s+sell(o),0)}}
 
@@ -424,7 +415,7 @@ requestAnimationFrame(()=>{const h=document.querySelector('header')?.getBounding
 
 function vQ(){
 const cn=i=>vo().filter(o=>i<0||o.status===i).length;
-const toolbar=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<div class="order-toolbar-row"><input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}"><select id="order-group" aria-label="Kelompokkan berdasarkan"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`;
+const toolbar=tripBar()+'<div class="chips">'+[-1,0,1,2,3,4,5].map(i=>`<button class="chip ${S.filter===i?'on':''}" data-f="${i}">${i<0?'Semua':ST[i]} ${cn(i)}</button>`).join('')+'</div>'+`<input id="qs" placeholder="Cari barang, toko, atau pembeli…" value="${e(S.q||'')}" style="margin:2px 0 4px">`+`<div class="row" style="margin:4px 0 8px;align-items:center"><label style="margin:0;flex:1;font-size:12px;color:var(--mute)">Kelompokkan berdasarkan</label><select id="order-group" style="width:auto;min-width:175px;min-height:40px"><option value="date" ${S.orderGroup==='date'?'selected':''}>Tanggal order</option><option value="name" ${S.orderGroup==='name'?'selected':''}>Nama pelanggan</option><option value="item" ${S.orderGroup==='item'?'selected':''}>Nama pesanan</option></select></div>`;
 const q=(S.q||'').toLowerCase();
 const L=vo().filter(o=>(S.filter<0||o.status===S.filter)&&(!q||(o.item+' '+(o.store||'')+' '+cust(o.cid).name).toLowerCase().includes(q)));
 if(!L.length)return `<div class="orders-page"><div class="orders-toolbar">${toolbar}</div><div class="orders-scroll"><div class="empty">${vo().length?'Nggak ada pesanan di tahap ini.':'Belum ada pesanan.<br>Ketuk <b>+ Pesanan</b> pas ada yang titip ya!'}</div></div></div>`;
@@ -557,12 +548,32 @@ const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diis
 const modalTotal=amt*qty*S.rates[cur];if(finalPrice>0&&finalPrice<modalTotal)return toast('Harga akhir tidak boleh lebih kecil dari modal '+idr(modalTotal),3500);
 const orderId=id||uid(),old=S.orders.find(z=>z.id===id),oldPhoto=old?.photo||'',oldPath=old?.photoPath||'',newPhotoIsData=typeof photo==='string'&&photo.startsWith('data:image/');
 const autoMarkup=finalPrice>0?Math.max(0,(finalPrice-modalTotal)/qty):num($('#f-m').value);
-const orderDate=$('#f-date').value||localDateInput();const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,orderDate,photo:newPhotoIsData?'':photo,photoPath:newPhotoIsData?(oldPath||''):photo?oldPath:'',pm:$('#f-pm').value};
+const orderDate=$('#f-date').value||localDateInput();
+// Pertahankan foto lama sampai foto baru benar-benar berhasil di-upload.
+const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,orderDate,photo:newPhotoIsData?oldPhoto:photo,photoPath:newPhotoIsData?oldPath:photo?oldPath:'',pm:$('#f-pm').value};
 if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
 else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
 S.trip.cur=cur;if(!finalPrice){S.trip.markup=d.markup;S.trip.mt=d.mt}save();close();render();
-if(newPhotoIsData){toast('Pesanan tersimpan. Mengunggah foto…',4000);try{const r=await uploadPhoto(orderId,photo);const x=S.orders.find(z=>z.id===orderId);if(x){x.photo=r.url;x.photoPath=r.path;save();render();toast('Foto tersimpan di Firebase Storage ✔',2500)}}catch(err){console.error(err);toast('Pesanan tersimpan, tapi foto gagal diunggah. Coba edit pesanan lalu pilih foto lagi.',6000)}}
-else if(old&&oldPhoto&&!photo){await deletePhoto(oldPath);if(old){old.photoPath='';save()}}
+if(newPhotoIsData){
+  toast('Pesanan tersimpan. Mengompres & mengunggah foto…',5000);
+  try{
+    const r=await uploadPhoto(orderId,photo);
+    const x=S.orders.find(z=>z.id===orderId);
+    if(x){
+      const previousPath=x.photoPath;
+      x.photo=r.url;x.photoPath=r.path;save();render();
+      if(previousPath&&previousPath!==r.path){try{await deletePhoto(previousPath)}catch(err){console.warn('Foto lama gagal dihapus',err)}}
+      toast('Foto tersimpan & sudah dikompres ✔',3000);
+    }
+  }catch(err){
+    console.error('uploadPhoto',err);
+    toast('Pesanan tersimpan, tetapi foto gagal diunggah. Cek Firebase Storage/Rules lalu coba pilih foto lagi.',7000);
+  }
+}
+else if(old&&oldPhoto&&!photo){
+  try{await deletePhoto(oldPath)}catch(err){console.warn('Foto gagal dihapus',err)}
+  if(old){old.photoPath='';save();render()}
+}
 else toast(id?'Tersimpan ✔':'Pesanan dicatat ✔',2500)};
 if(id){$('#del').onclick=()=>{if($('#del').dataset.cf){S.orders=S.orders.filter(x=>x.id!==id);save();close();render()}else{$('#del').dataset.cf=1;$('#del').textContent='Yakin hapus? Ketuk lagi'}}}
 $('#scan').onclick=()=>$('#f-f').click();
@@ -661,7 +672,17 @@ else if(t.id==='imp'){const fl=t.files[0];if(!fl)return;const rd=new FileReader(
 document.addEventListener('touchmove',ev=>{if(ev.touches.length>1)ev.preventDefault()},{passive:false});
 async function backup(){const b=new Blob([JSON.stringify(S)],{type:'application/json'}),fn='jastip-cadangan.json';
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
-function shrink(f){return new Promise((res,rej)=>{const r=new FileReader();r.onerror=rej;r.onload=()=>{const i=new Image();i.onerror=rej;i.onload=()=>{const k=Math.min(1,640/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);res(c.toDataURL('image/jpeg',.72))};i.src=r.result};r.readAsDataURL(f)})}
+function shrink(f){return new Promise((res,rej)=>{
+  const r=new FileReader();r.onerror=rej;r.onload=()=>{
+    const i=new Image();i.onerror=rej;i.onload=()=>{
+      const maxSide=480,k=Math.min(1,maxSide/Math.max(i.width,i.height));
+      const c=document.createElement('canvas');c.width=Math.max(1,Math.round(i.width*k));c.height=Math.max(1,Math.round(i.height*k));
+      const ctx=c.getContext('2d',{alpha:false});ctx.drawImage(i,0,0,c.width,c.height);
+      // Maksimum 480px + JPEG quality 0.55 agar ukuran foto jauh lebih kecil.
+      res(c.toDataURL('image/jpeg',.55));
+    };i.src=r.result;
+  };r.readAsDataURL(f);
+})}
 function custSheet(id){const c=S.customers.find(x=>x.id===id)||{name:'',wa:'',address:''};
 const address=c.address||c.notes||'';
 sheet(`<h1>${id?'Ubah pelanggan':'Pelanggan baru'}</h1><label>Nama</label><input id="c-n" value="${e(c.name)}" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="c-w" inputmode="tel" value="${e(c.wa)}" placeholder="0812…">
