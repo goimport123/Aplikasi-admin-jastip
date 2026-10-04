@@ -403,7 +403,7 @@ async function migrateLegacyPhotos(){
   // memigrasikan otomatis saat koneksi awal karena dapat membuat boot lambat.
   return;
 }
-async function cloudTick(){if(!serverSnapshotReady)return;try{if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0),hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;if(hasCloudData&&!localPending&&pendingMs<=cloudMs){S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false}else if(localPending){const mergedPending=mergePendingWithServer();if(mergedPending)toast('Menggabungkan perubahan HP dengan data server terbaru…',2500)}else{S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}})}ensureTrip();for(const col of ['customers','sellers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();await migrateLegacyPhotos();cloudReady=true;if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}render()}else if(!localPending){S.customers=snapshotObjects(window.__snapCustomers);S.sellers=snapshotObjects(window.__snapSellers);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});for(const col of ['customers','sellers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render()}}catch(err){console.error('cloudTick',err);cloudReady=false;setCloudState('error');if(localPending)cacheSave();toast('Sinkronisasi gagal saat memuat data: '+String(err&&err.message||err).slice(0,160),9000)}}
+async function cloudTick(){if(!serverSnapshotReady)return;try{if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0),hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;if(hasCloudData&&!localPending&&pendingMs<=cloudMs){S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false}else if(localPending){const mergedPending=mergePendingWithServer();if(mergedPending)toast('Menggabungkan perubahan HP dengan data server terbaru…',2500)}else{S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}})}ensureTrip();for(const col of ['customers','sellers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();await migrateLegacyPhotos();cloudReady=true;retryPendingLocalPhotos();if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}render()}else if(!localPending){S.customers=snapshotObjects(window.__snapCustomers);S.sellers=snapshotObjects(window.__snapSellers);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});for(const col of ['customers','sellers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render();retryPendingLocalPhotos()}}catch(err){console.error('cloudTick',err);cloudReady=false;setCloudState('error');if(localPending)cacheSave();toast('Sinkronisasi gagal saat memuat data: '+String(err&&err.message||err).slice(0,160),9000)}}
 function handleCloudSnapshot(col,s){window['__snap'+col.charAt(0).toUpperCase()+col.slice(1)]=s;if(!s.metadata.fromCache)initialCloud[col]=true;shadowCollection(col,s);serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()}
 function startCloud(){if(cloudStarted)return;cloudStarted=true;db.collection('customers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('customers',s),cloudError);db.collection('sellers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('sellers',s),cloudError);db.collection('orders').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('orders',s),cloudError);db.collection('trips').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('trips',s),cloudError);db.collection('ships').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('ships',s),cloudError);db.collection('settings').doc('app').onSnapshot({includeMetadataChanges:true},s=>{cloudMetaCache=s.exists?s.data():null;if(!s.metadata.fromCache)initialCloud.meta=true;if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()},cloudError)}
 let serverWatchdog=setTimeout(()=>{
@@ -511,7 +511,7 @@ const groups={};L.forEach(o=>{const k=keyOf(o);(groups[k]||(groups[k]=[])).push(
 const htmlGroup=Object.entries(groups).sort((a,b)=>cmp(a[0],b[0])).map(([g,items])=>{
 items.sort((a,b)=>{const byTime=(a.ts||0)-(b.ts||0);return desc?-byTime:byTime;});
 return `<div class="order-group"><div class="order-group-title"><span>${e(labelOf(g))}</span><span class="fx">${items.length} pesanan</span></div>`+items.map(o=>{const c=cust(o.cid),nx=o.status<5?ST[o.status+1]:null;
-return `<div class="card order-card"><div class="row">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
+return `<div class="card order-card"><div class="row">${photoSrc(o)?`<img class="thumb" src="${photoSrc(o)}" data-z="${o.id}" alt="Foto ${e(o.item)}">`:''}<div style="flex:1"><div class="who">${e(c.name)}</div><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div>
 <div class="fx">Order: ${fmtOrderDate(orderDateOf(o))} · ${e(o.store||'toko ?')} · ${fx(o.amt,o.cur)}${o.qty>1?' /pcs':''} · ${mkl(o)}</div></div>
 <div><div class="price">${idr(sell(o))}</div><div style="text-align:right">${bought(o)||paidOf(o)>0?`<button class="tag ${sisa(o)<=0?'lunas':'utang'}" data-pay="${o.id}" style="min-height:32px;padding:0 10px;border:0">${sisa(o)<=0?'Lunas':paidOf(o)>0?'Sebagian · sisa '+rb(sisa(o)):'Belum bayar'}</button>`:''}</div></div></div>
 <div class="steps">${ST.map((t,i)=>`<button data-s="${o.id}:${i}" class="${i<o.status?'done':i===o.status?'cur':''}">${t}</button>`).join('')}</div>
@@ -603,15 +603,16 @@ ${bc.length?bc.map(x=>`<div class="trip-customer"><div class="avatar">${e(initia
 <input type="file" id="imp" accept=".json,application/json" hidden><button style="width:100%;margin-top:7px;min-height:40px" data-imp="1">↩ Pulihkan cadangan</button>
 <div class="trip-history">${histTrips()}</div>${S.view==='all'||vid()!==S.tripId?'':`<button class="primary" style="background:var(--soft);color:var(--ink);margin-top:10px;min-height:42px" id="newtrip">Tutup trip (cutoff)</button><div class="fx" style="margin-top:6px">Cutoff menutup trip ini dan membuka trip baru. Data lama tetap tersimpan.</div>`}`}
 
-function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:S.customers[0]?.id||'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct',finalPrice:'',orderDate:localDateInput()};
-let photo=o.photo||'';
+function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:'',item:'',store:'',cat:CAT[0],cur:S.trip.cur,amt:'',qty:1,markup:S.trip.markup,mt:S.trip.mt||'pct',finalPrice:'',orderDate:localDateInput()};
+let photo=photoSrc(o);
 sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
-<label>Cari pelanggan berdasarkan nama</label><input id="f-cq" placeholder="Ketik nama pelanggan…" autocomplete="off" value="${e((S.customers.find(c=>c.id===o.cid)||{}).name||'')}">
-<label>Pelanggan</label><select id="f-c">${S.customers.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
+<label>Cari pelanggan berdasarkan nama</label><input id="f-cq" placeholder="Ketik nama pelanggan…" autocomplete="off" value="">
+<label>Pelanggan</label><select id="f-c"><option value="" ${!o.cid?'selected':''}>Pilih pelanggan…</option>${S.customers.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
 <div id="nc" hidden><label>Nama pelanggan baru</label><input id="f-nn" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="f-nw" inputmode="tel" placeholder="0812…"></div>
 <label>Tanggal order</label><input id="f-date" type="date" value="${e(orderDateOf(o))}"><label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
-<label>Toko</label><input id="f-s" value="${e(o.store)}" placeholder="mis. Matsumoto Kiyoshi">
-<div class="two"><div><label>Kategori</label><select id="f-k">${CAT.map(k=>`<option ${k===o.cat?'selected':''}>${k}</option>`).join('')}</select></div><div><label>Dibawa lewat</label><select id="f-pm"><option value="kargo" ${(o.pm||'kargo')==='kargo'?'selected':''}>Kargo</option><option value="koper" ${o.pm==='koper'?'selected':''}>Koper</option></select></div></div>
+<label>Cari toko berdasarkan nama</label><input id="f-sq" placeholder="Ketik nama toko…" autocomplete="off" value="">
+<label>Toko</label><select id="f-s"><option value="" ${!o.store?'selected':''}>Pilih toko…</option>${[...(S.sellers||[])].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(x=>`<option value="${e(x.name)}" ${x.name===o.store?'selected':''}>${e(x.name)}${x.location?' · '+e(x.location):''}</option>`).join('')}${o.store&&!(S.sellers||[]).some(x=>x.name===o.store)?`<option value="${e(o.store)}" selected>${e(o.store)}</option>`:''}</select>
+<div class="two"><div><label>Kategori</label><select id="f-k">${CAT.map(k=>`<option ${k===o.cat?'selected':''}>${k}</option>`).join('')}</select></div><div><label>Dibawa lewat</label><select id="f-pm"><option value="kargo_udara" ${(!o.pm||o.pm==='kargo'||o.pm==='kargo_udara')?'selected':''}>Kargo udara</option><option value="kargo_laut" ${o.pm==='kargo_laut'?'selected':''}>Kargo laut</option><option value="koper" ${o.pm==='koper'?'selected':''}>Koper</option></select></div></div>
 <div class="two"><div><label>Mata uang modal</label><select id="f-u">${Object.keys(S.rates).map(c=>`<option ${c===o.cur?'selected':''}>${c}</option>`).join('')}</select></div>
 <div><label>Harga modal per pcs</label><input id="f-a" inputmode="decimal" value="${o.amt}"></div></div>
 <label>Jumlah</label><input id="f-q" inputmode="numeric" value="${o.qty}">
@@ -626,11 +627,15 @@ sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 <div id="sr"></div>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="del">Hapus pesanan</button>':''}`);
 
 const customerOptions=[...$('#f-c').options];
-const filterCustomers=()=>{const q=$('#f-cq').value.trim().toLocaleLowerCase('id');let shown=[];customerOptions.forEach(opt=>{const show=opt.value==='+'||!q||opt.textContent.toLocaleLowerCase('id').includes(q);opt.hidden=!show;if(show&&opt.value!=='+')shown.push(opt)});if(!q){$('#f-c').value=o.cid||''}else if(shown.length===1&&shown[0].value!=='+'){$('#f-c').value=shown[0].value;$('#nc').hidden=true}};
+const sellerOptions=[...$('#f-s').options];
+const filterCustomers=()=>{const q=$('#f-cq').value.trim().toLocaleLowerCase('id');let shown=[];customerOptions.forEach(opt=>{const show=opt.value==='+'||opt.value===''||!q||opt.textContent.toLocaleLowerCase('id').includes(q);opt.hidden=!show;if(show&&opt.value!==''&&opt.value!=='+')shown.push(opt)});if(q&&shown.length===1){$('#f-c').value=shown[0].value;$('#nc').hidden=true}};
+const filterSellers=()=>{const q=$('#f-sq').value.trim().toLocaleLowerCase('id');let shown=[];sellerOptions.forEach(opt=>{const show=opt.value===''||!q||opt.textContent.toLocaleLowerCase('id').includes(q);opt.hidden=!show;if(show&&opt.value!=='')shown.push(opt)});if(q&&shown.length===1)$('#f-s').value=shown[0].value};
 $('#f-cq').oninput=filterCustomers;
-$('#f-c').onchange=()=>{const v=$('#f-c').value;$('#nc').hidden=v!=='+';if(v!=='+'){const c=S.customers.find(x=>x.id===v);if(c)$('#f-cq').value=c.name;filterCustomers()}};
+$('#f-c').onchange=()=>{const v=$('#f-c').value;$('#nc').hidden=v!=='+';if(v!=='+'&&v!==''){const c=S.customers.find(x=>x.id===v);if(c){/* nama tidak dimasukkan otomatis ke kolom pencarian */}}};
+$('#f-sq').oninput=filterSellers;
+$('#f-s').onchange=()=>{const v=$('#f-s').value;if(v&&v!=='')$('#f-sq').value=''};
 $('#nc').hidden=$('#f-c').value!=='+';
-filterCustomers();
+filterCustomers();filterSellers();
 
 const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]||0,qty=Math.max(1,num($('#f-q').value)),a=num($('#f-a').value)*qty*r,final=num($('#f-final').value),m=num($('#f-m').value),t=$('#f-mt').value;
 let p,profit;
@@ -653,27 +658,17 @@ const modalTotal=amt*qty*S.rates[cur];if(finalPrice>0&&finalPrice<modalTotal)ret
 const orderId=id||uid(),old=S.orders.find(z=>z.id===id),oldPhoto=old?.photo||'',oldPath=old?.photoPath||'',newPhotoIsData=typeof photo==='string'&&photo.startsWith('data:image/');
 const autoMarkup=finalPrice>0?Math.max(0,(finalPrice-modalTotal)/qty):num($('#f-m').value);
 const orderDate=$('#f-date').value||localDateInput();
-// Pertahankan foto lama sampai foto baru benar-benar berhasil di-upload.
+// Foto baru disimpan lebih dulu di localStorage. URL Firebase baru dipasang
+// setelah upload berhasil, sehingga foto tetap tampil walau koneksi server lambat.
 const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,orderDate,photo:newPhotoIsData?oldPhoto:photo,photoPath:newPhotoIsData?oldPath:photo?oldPath:'',pm:$('#f-pm').value};
 if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
 else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
+if(newPhotoIsData)saveLocalPhoto(orderId,photo);
+else if(!photo)removeLocalPhoto(orderId);
 S.trip.cur=cur;if(!finalPrice){S.trip.markup=d.markup;S.trip.mt=d.mt}save();close();render();
 if(newPhotoIsData){
-  toast('Pesanan tersimpan. Mengompres & mengunggah foto…',5000);
-  try{
-    const r=await uploadPhoto(orderId,photo);
-    const x=S.orders.find(z=>z.id===orderId);
-    if(x){
-      const previousPath=x.photoPath;
-      x.photo=r.url;x.photoPath=r.path;save();render();
-      if(previousPath&&previousPath!==r.path){try{await deletePhoto(previousPath)}catch(err){console.warn('Foto lama gagal dihapus',err)}}
-      toast('Foto tersimpan & sudah dikompres ✔',3000);
-    }
-  }catch(err){
-    console.error('uploadPhoto',err);
-    const code=err&&err.code?` (${err.code})`:'';
-    toast('Pesanan tersimpan, tetapi foto gagal diunggah'+code+'. Coba pilih foto lagi; detail ada di Console.',8000);
-  }
+  toast('Pesanan tersimpan. Foto sudah tampil dan sedang diunggah…',5000);
+  setTimeout(()=>uploadLocalPhoto(orderId),80);
 }
 else if(old&&oldPhoto&&!photo){
   try{await deletePhoto(oldPath)}catch(err){console.warn('Foto gagal dihapus',err)}
@@ -695,15 +690,15 @@ function vP(){const bo=S.orders.filter(bought),k=shipIds(),kp=bo.filter(o=>(o.pm
 if(S.pk==='k')return h0+vK(k);
 if(S.pk==='kp')return h0+vKp(kp);
 const pkd=bo.filter(o=>o.packed).length,pc=bo.length?Math.round(pkd/bo.length*100):0,L=bo.filter(o=>!o.resi);
-S.pick=S.pick.filter(id=>L.some(o=>o.id===id&&(o.pm||'kargo')==='kargo'));
+S.pick=S.pick.filter(id=>L.some(o=>o.id===id&&(o.pm||'kargo')!=='koper'));
 let h=h0+`<div class="hero"><span style="opacity:.75">Progress packing</span><b>${pkd} / ${bo.length} barang (${pc}%)</b><div class="bar"><i style="width:${pc}%;background:var(--sun)"></i></div></div>`;
 if(!L.length)return h+`<div class="empty">${bo.length?'Semua barang sudah masuk resi. Lihat tab Kargo forwarder.':'Belum ada barang yang dibeli.<br>Ubah status pesanan jadi <b>Dibeli</b> dulu.'}</div>`;
 const g={};L.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
 const cb='style="width:22px;min-height:22px"',lb='style="margin:0;display:flex;gap:6px;align-items:center"';
-h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>{const kg=(o.pm||'kargo')==='kargo';
-return `<div class="row" style="margin-top:10px;align-items:center">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div>
+h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>{const kg=(o.pm||'kargo')!=='koper';
+return `<div class="row" style="margin-top:10px;align-items:center">${photoSrc(o)?`<img class="thumb" src="${photoSrc(o)}" data-z="${o.id}" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div>
 <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;align-items:center"><label ${lb}><input type="checkbox" ${cb} data-pkd="${o.id}" ${o.packed?'checked':''}>Sudah dipacking</label>
-<select data-pm="${o.id}" style="width:auto;min-height:36px"><option value="kargo" ${kg?'selected':''}>Kargo</option><option value="koper" ${kg?'':'selected'}>Koper</option></select>
+<select data-pm="${o.id}" style="width:auto;min-height:36px"><option value="kargo_udara" ${(!o.pm||o.pm==='kargo'||o.pm==='kargo_udara')?'selected':''}>Kargo udara</option><option value="kargo_laut" ${o.pm==='kargo_laut'?'selected':''}>Kargo laut</option><option value="koper" ${o.pm==='koper'?'selected':''}>Koper</option></select>
 ${kg?`<label ${lb}><input type="checkbox" ${cb} data-pick="${o.id}" ${S.pick.includes(o.id)?'checked':''}>Masuk resi</label>`:''}</div></div></div>`}).join('')+'</div>').join('');
 return h+(S.pick.length?`<button class="primary" data-ship="">Buat resi kargo (${S.pick.length} barang)</button>`:'<div class="fx" style="text-align:center;margin-top:10px">Centang "Masuk resi" di barang kargo, lalu buat resi kalau forwarder sudah memproses.</div>')}
 function tripBar(){if(S.trips.length<2)return '';const cur=S.view||'cur';
@@ -718,7 +713,7 @@ let h=`<div class="hero"><span style="opacity:.75">Progress koper</span><b>${don
 if(!L.length)return h+'<div class="empty">Belum ada barang yang dibawa lewat koper.<br>Pilih <b>Dibawa lewat → Koper</b> di pesanan.</div>';
 if(todo.length)h+=`<button data-kpall="1" style="width:100%">${S.kp.length===todo.length?'Batal pilih semua':'Pilih semua yang belum dipacking'}</button>`;
 const g={};L.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
-h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>`<div class="row" style="margin-top:10px;align-items:center">${o.photo?`<img class="thumb" src="${o.photo}" data-z="${o.id}" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div></div>
+h+=Object.keys(g).map(cid=>`<div class="card"><div class="who">${e(cust(cid).name)}</div>`+g[cid].map(o=>`<div class="row" style="margin-top:10px;align-items:center">${photoSrc(o)?`<img class="thumb" src="${photoSrc(o)}" data-z="${o.id}" alt="">`:''}<div style="flex:1;min-width:0"><div class="item">${e(o.item)}${o.qty>1?' ×'+o.qty:''}</div><div class="fx">${e(o.store||'toko ?')}${o.tripId!==S.tripId?' · '+e(tname(o.tripId)):''}</div></div>
 ${o.packed?`<div style="text-align:right"><span class="tag lunas">Sudah dipacking ✓</span><br><button data-kpundo="${o.id}" style="min-height:32px;margin-top:4px;font-size:12px">Batal</button></div>`:`<label style="margin:0;display:flex;gap:6px;align-items:center"><input type="checkbox" style="width:24px;min-height:24px" data-kp="${o.id}" ${S.kp.includes(o.id)?'checked':''}>Pilih</label>`}</div>`).join('')+'</div>').join('');
 return h+(S.kp.length?`<button class="primary" data-kpok="1" style="position:sticky;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3;box-shadow:0 4px 14px rgba(0,0,0,.25)">Submit sudah dipacking (${S.kp.length})</button>`:'')}
 function vK(k){if(!k.length)return '<div class="empty">Belum ada resi kargo.<br>Pilih barang kargo di tab <b>Perlu dipacking</b>, lalu <b>Buat resi</b>.</div>';
@@ -756,7 +751,7 @@ const g={};os.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
 for(const cid in g){const c=cust(cid);let sub=0;if(y>255){d.addPage();y=M}
 d.setFillColor(228,239,233);d.rect(M,y,W-2*M,7,'F');d.setFont('helvetica','bold');d.setFontSize(10);T(c.name+(c.wa?'  ('+c.wa+')':''),M+2,y+5);y+=10;
 for(const o of g[cid]){const nm=d.splitTextToSize(o.item+(o.store?' ('+o.store+')':''),price?100:140);let photoData=null;
-if(o.photo){try{photoData=await photoUrlToDataUrl(o.photo,o.photoPath)}catch(err){console.warn('Foto PDF tidak dapat dimuat',o.id,err)}}
+const psrc=photoSrc(o);if(psrc){try{photoData=psrc.startsWith('data:image/')?psrc:await photoUrlToDataUrl(psrc,o.photoPath)}catch(err){console.warn('Foto PDF tidak dapat dimuat',o.id,err)}}
 const h=Math.max(photoData?14:0,nm.length*4.5+3);
 if(y+h>278){d.addPage();y=M}
 if(photoData){try{const q=d.getImageProperties(photoData),k=Math.min(12/q.width,12/q.height);d.addImage(photoData,'JPEG',M,y,q.width*k,q.height*k)}catch(x){console.warn('Foto gagal dimasukkan ke PDF',o.id,x)}}
@@ -790,6 +785,41 @@ function shrink(f){return new Promise((res,rej)=>{
     };i.src=r.result;
   };r.readAsDataURL(f);
 })}
+
+const LOCAL_PHOTO_PREFIX=K+'-photo-';
+const photoUploadBusy=new Set();
+function localPhotoKey(id){return LOCAL_PHOTO_PREFIX+id}
+function getLocalPhoto(id){try{return localStorage.getItem(localPhotoKey(id))||''}catch(e){return ''}}
+function saveLocalPhoto(id,dataUrl){try{localStorage.setItem(localPhotoKey(id),dataUrl);return true}catch(e){console.warn('local photo save',e);toast('Foto tampil, tetapi penyimpanan foto lokal penuh. Foto akan tetap dicoba diunggah ke server.',5000);return false}}
+function removeLocalPhoto(id){try{localStorage.removeItem(localPhotoKey(id))}catch(e){}}
+function photoSrc(o){return o?.photo||getLocalPhoto(o?.id)||''}
+async function uploadLocalPhoto(orderId){
+  if(!orderId||photoUploadBusy.has(orderId))return;
+  const dataUrl=getLocalPhoto(orderId);
+  if(!dataUrl)return;
+  const order=S.orders.find(z=>z.id===orderId);
+  if(!order){removeLocalPhoto(orderId);return}
+  photoUploadBusy.add(orderId);
+  try{
+    const r=await uploadPhoto(orderId,dataUrl);
+    const x=S.orders.find(z=>z.id===orderId);
+    if(!x){removeLocalPhoto(orderId);return}
+    const previousPath=x.photoPath||'';
+    x.photo=r.url;x.photoPath=r.path;
+    removeLocalPhoto(orderId);
+    save();render();
+    if(previousPath&&previousPath!==r.path){try{await deletePhoto(previousPath)}catch(err){console.warn('Foto lama gagal dihapus',err)}}
+    toast('Foto tersimpan ke Firebase ✔',2500);
+  }catch(err){
+    console.error('uploadLocalPhoto',err);
+    // Foto lokal sengaja dipertahankan agar tidak hilang dan bisa dicoba lagi.
+  }finally{photoUploadBusy.delete(orderId)}
+}
+function retryPendingLocalPhotos(){
+  const jobs=[];
+  try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(LOCAL_PHOTO_PREFIX))jobs.push(k.slice(LOCAL_PHOTO_PREFIX.length))}}catch(e){}
+  jobs.forEach(id=>setTimeout(()=>uploadLocalPhoto(id),80));
+}
 
 function sellerSheet(id){
   const x=(S.sellers||[]).find(z=>z.id===id)||{name:'',location:''};
@@ -855,7 +885,7 @@ function tripSheet(){sheet(`<h1>Atur trip</h1><label>Nama trip</label><input id=
 <label>Markup standar</label><div class="two"><select id="t-mt"><option value="pct" ${S.trip.mt!=='idr'?'selected':''}>Persen (%)</option><option value="idr" ${S.trip.mt==='idr'?'selected':''}>Nominal (Rp per pcs)</option></select><input id="t-m" inputmode="decimal" value="${S.trip.markup}" aria-label="Besar markup standar"></div><button class="primary" id="t-ok">Simpan</button>`);
 $('#t-ok').onclick=()=>{S.trip.name=$('#t-n').value.trim()||'Trip baru';{const ct=S.trips.find(x=>x.id===S.tripId);if(ct)ct.name=S.trip.name}S.trip.markup=num($('#t-m').value);S.trip.mt=$('#t-mt').value;save();close();render()}}
 
-document.addEventListener('click',ev=>{const z=ev.target.closest('[data-z]');if(z){const o=S.orders.find(x=>x.id===z.dataset.z);if(o)sheet(`<div class="who">${e(o.item)}</div><img class="big" style="max-height:70vh" src="${o.photo}" alt="Foto ${e(o.item)}"><button class="primary" id="zc">Tutup</button>`);return}
+document.addEventListener('click',ev=>{const z=ev.target.closest('[data-z]');if(z){const o=S.orders.find(x=>x.id===z.dataset.z);if(o)sheet(`<div class="who">${e(o.item)}</div><img class="big" style="max-height:70vh" src="${photoSrc(o)}" alt="Foto ${e(o.item)}"><button class="primary" id="zc">Tutup</button>`);return}
 const t=ev.target.closest('button');if(!t)return;const d=t.dataset;
 if(t.id==='zc')return close();
 if(d.t){rememberTabScroll(S.tab);S.tab=d.t;save();render()}else if(d.f){rememberTabScroll();S.filter=+d.f;render()}
