@@ -63,7 +63,7 @@ input,select,textarea{width:100%;min-height:46px;border-radius:12px;border:1px s
 .primary{width:100%;background:var(--acc);color:#fff;font-weight:800;min-height:50px;margin-top:6px}
 .toast{position:fixed;left:12px;right:12px;bottom:calc(150px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);border-radius:14px;padding:10px 12px;display:flex;gap:10px;align-items:center;justify-content:space-between;z-index:9;max-width:536px;margin:auto}
 .warn{background:#fff3c4;color:#5b4700;border-radius:12px;padding:10px 12px;margin:8px 0;font-size:13px}.savehint{font-size:11px;color:var(--mute)}
-.empty{text-align:center;color:var(--mute);padding:40px 10px}
+.empty{text-align:center;color:var(--mute);padding:40px 10px} .settings-menu{display:grid;gap:8px;margin:8px 0 18px}.settings-card{display:flex;align-items:center;gap:12px;width:100%;min-height:62px;padding:10px 12px;text-align:left;background:var(--card);border:1px solid var(--line);border-radius:14px}.settings-card .ico{width:38px;height:38px;display:grid;place-items:center;border-radius:11px;background:var(--soft);font-size:20px;flex:none}.settings-card .stitle{font-weight:800;font-size:14px}.settings-card .sdesc{font-size:11px;color:var(--mute);margin-top:2px}.settings-card .arrow{margin-left:auto;font-size:20px;color:var(--mute)}.settings-head{display:flex;align-items:center;gap:8px;margin:8px 0 10px}.settings-head button{min-height:34px;width:34px;padding:0;border-radius:10px}.cargo-kind{display:inline-block;margin-top:3px;font-size:10px;border-radius:99px;padding:2px 7px;background:var(--soft);color:var(--ink);font-weight:700}
 /* Layout tab Pesanan
    Header aplikasi + toolbar tetap, hanya daftar order yang scroll.
    Dibuat dengan flex pada BODY agar tidak menghasilkan area daftar setinggi 0px. */
@@ -215,7 +215,7 @@ pre{white-space:pre-wrap;font:inherit;background:var(--card);border:1px solid va
 <header><div><h1 id="tn"></h1><div class="sub" id="ts"></div><div class="fx" id="cs">☁ Menghubungkan…</div></div><button id="gear" aria-label="Atur trip">Atur</button></header>
 <main id="m"></main>
 <button class="fab" id="fab" aria-label="Tambah pesanan">+</button>
-<nav class="nav"><button data-t="q">Pesanan</button><button data-t="p">Packing</button><button data-t="c">List pembeli</button><button data-t="s">List penjual</button><button data-t="d">Trip</button></nav>
+<nav class="nav"><button data-t="q">Pesanan</button><button data-t="p">Packing</button><button data-t="c">List pembeli</button><button data-t="s">Pengaturan</button><button data-t="d">Trip</button></nav>
 <div id="ov"></div><div id="tt"></div>
 <script>
 const CUR={IDR:['Rp',1],JPY:['¥',110],KRW:['₩',11.6],SGD:['S$',12900],THB:['฿',490],HKD:['HK$',2100],USD:['$',16400],MYR:['RM',3900],TWD:['NT$',520],EUR:['€',19200],AUD:['A$',10900],CNY:['CN¥',2300]};
@@ -236,7 +236,7 @@ try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{});}catch(e){}
 const K='jastip-v2';
 const CLIENT_ID=(localStorage.getItem(K+'-client')||('c-'+Math.random().toString(36).slice(2,10))).toString();
 localStorage.setItem(K+'-client',CLIENT_ID);
-const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],sellers:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',cq:'',sq:'',orderGroup:'date',orderSort:'newest',kp:[],trips:[],tripId:'',view:'cur'});
+const def=()=>({trip:{name:'Trip baru',markup:15,cur:'JPY'},rates:Object.fromEntries(Object.entries(CUR).map(([k,v])=>[k,v[1]])),ratesAt:null,customers:[],sellers:[],cargos:[],orders:[],history:[],tab:'q',filter:-1,ships:{},pk:'siap',pick:[],pdfPrice:true,q:'',cq:'',sq:'',orderGroup:'date',orderSort:'newest',kp:[],trips:[],tripId:'',view:'cur'});
 let S=def();
 let localPending=false;
 let localEditAt=Number(localStorage.getItem(K+'-edit-at')||0);
@@ -249,9 +249,9 @@ function loadCache(){
   }catch(e){}
 }
 loadCache();
-S.sellers=Array.isArray(S.sellers)?S.sellers:[];S.sq=S.sq||'';
+S.sellers=Array.isArray(S.sellers)?S.sellers:[];S.cargos=Array.isArray(S.cargos)?S.cargos:[];S.sq=S.sq||'';S.cqg=S.cqg||'';S.settingsView=S.settingsView||'home';
 let cloudReady=false,cloudBooted=false,cloudWriting=false,cloudTimer=null,cloudDirty=false,cloudState='connecting',cloudStarted=false;
-let initialCloud={customers:false,sellers:false,orders:false,trips:false,ships:false,meta:false};
+let initialCloud={customers:false,sellers:false,cargos:false,orders:false,trips:false,ships:false,meta:false};
 const cloudShadow={customers:{},orders:{},trips:{},ships:{},meta:''};
 const localBase={customers:{},orders:{},trips:{},ships:{},meta:''};
 let serverSnapshotReady=false;
@@ -260,7 +260,7 @@ function stable(x){return JSON.stringify(x,(k,v)=>v&&v.toDate?v.toDate().toISOSt
 function metaPlain(){
   return {
     trip:S.trip,rates:S.rates,ratesAt:S.ratesAt,history:S.history,tab:S.tab,
-    filter:S.filter,pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,cq:S.cq,sq:S.sq,kp:S.kp,
+    filter:S.filter,pk:S.pk,pick:S.pick,pdfPrice:S.pdfPrice,q:S.q,cq:S.cq,sq:S.sq,cqg:S.cqg,settingsView:S.settingsView,kp:S.kp,
     tripId:S.tripId,view:S.view,v2:S.v2||1,orderGroup:S.orderGroup||'date',orderSort:S.orderSort||'newest'
   };
 }
@@ -269,7 +269,7 @@ function logicalMeta(x){
   if(!x)return null;
   return {
     trip:x.trip,rates:x.rates,ratesAt:x.ratesAt,history:x.history,tab:x.tab,
-    filter:x.filter,pk:x.pk,pick:x.pick,pdfPrice:x.pdfPrice,q:x.q,cq:x.cq,sq:x.sq,kp:x.kp,
+    filter:x.filter,pk:x.pk,pick:x.pick,pdfPrice:x.pdfPrice,q:x.q,cq:x.cq,sq:x.sq,cqg:x.cqg,settingsView:x.settingsView,kp:x.kp,
     tripId:x.tripId,view:x.view,v2:x.v2||1,orderGroup:x.orderGroup||'date',orderSort:x.orderSort||'newest'
   };
 }
@@ -292,11 +292,11 @@ function cacheSave(){try{localStorage.setItem(K,JSON.stringify(S));localStorage.
 function cacheBaseSave(){try{localStorage.setItem(K+'-base',JSON.stringify(localBase))}catch(e){}}
 function cacheBaseLoad(){try{return JSON.parse(localStorage.getItem(K+'-base')||'null')}catch(e){return null}}
 function cloudOrder(x){const y={...(x||{})};delete y._updatedAtMs;delete y._clientId;return y}
-function liveDocs(){const docs={customers:{},sellers:{},orders:{},trips:{},ships:{}};S.customers.forEach(x=>docs.customers[x.id]=cloudOrder(x));S.sellers.forEach(x=>docs.sellers[x.id]=cloudOrder(x));S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=cloudOrder(x));Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=cloudOrder(x));return docs}
+function liveDocs(){const docs={customers:{},sellers:{},cargos:{},orders:{},trips:{},ships:{}};S.customers.forEach(x=>docs.customers[x.id]=cloudOrder(x));S.sellers.forEach(x=>docs.sellers[x.id]=cloudOrder(x));S.cargos.forEach(x=>docs.cargos[x.id]=cloudOrder(x));S.orders.forEach(x=>docs.orders[x.id]=cloudOrder(x));S.trips.forEach(x=>docs.trips[x.id]=cloudOrder(x));Object.entries(S.ships||{}).forEach(([id,x])=>docs.ships[id]=cloudOrder(x));return docs}
 function markLocalChanges(now){const docs=liveDocs();for(const col of Object.keys(docs)){for(const [id,data] of Object.entries(docs[col])){const before=localBase[col][id];if(!before||stable(before)!==stable(data))data._updatedAtMs=now;else if(before._updatedAtMs!=null)data._updatedAtMs=before._updatedAtMs;data._clientId=CLIENT_ID}}return docs}
 function buildOps(){
   const docs=markLocalChanges(localEditAt||Date.now()),ops=[];
-  for(const col of ['customers','sellers','orders','trips','ships']){
+  for(const col of ['customers','sellers','cargos','orders','trips','ships']){
     const now=docs[col],base=localBase[col];
     for(const [id,data] of Object.entries(now)){
       // Bandingkan data bisnis saja. Metadata sinkronisasi (_updatedAtMs/_clientId)
@@ -343,7 +343,7 @@ function rawCloudRecords(col){const out={};Object.keys(cloudShadow[col]).forEach
 function rawCloudObjects(col){const out={};Object.entries(rawCloudRecords(col)).forEach(([id,x])=>{if(x&&!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out[id]=y}});return out}
 function snapshotObjects(snap){const out=[];if(!snap)return out;snap.forEach(d=>{const x=d.data()||{};if(!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out.push(y)}});return out}
 function snapshotMap(snap){const out={};if(!snap)return out;snap.forEach(d=>{const x=d.data()||{};if(!x._deleted){const y={...x};delete y._updatedAtMs;delete y._clientId;out[d.id]=y}});return out}
-function applyMeta(snap){if(!snap||!snap.exists)return;const x=snap.data()||{};cloudMetaCache=x;if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','cq','sq','kp','tripId','view','v2','orderGroup','orderSort'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
+function applyMeta(snap){if(!snap||!snap.exists)return;const x=snap.data()||{};cloudMetaCache=x;if(x.trip)S.trip=x.trip;if(x.rates)S.rates=x.rates;if(x.ratesAt!==undefined)S.ratesAt=x.ratesAt;['history','tab','filter','pk','pick','pdfPrice','q','cq','sq','cqg','settingsView','kp','tripId','view','v2','orderGroup','orderSort'].forEach(k=>{if(x[k]!==undefined)S[k]=x[k]})}
 function cloudError(err){
   console.error('Firebase',err);
   // Error koneksi tidak berarti ada perubahan lokal yang harus dikirim.
@@ -360,11 +360,11 @@ function mergePendingWithServer(){const previous=cacheBaseLoad();if(!previous){
   // Tanpa baseline lokal, kita tidak bisa membedakan edit lokal dari cache lama.
   // Dalam kondisi ini server harus menjadi sumber kebenaran agar cache kosong/lama
   // tidak pernah menghapus atau mengganti pesanan yang sudah ada di Firebase.
-  S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);
+  S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.cargos=cloudObjects('cargos');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);
   applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});
   localPending=false;
   return false;
-}const current=liveDocs(),merged={customers:{},sellers:{},orders:{},trips:{},ships:{}};for(const col of Object.keys(merged)){const server=rawCloudRecords(col);const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server||{})]);ids.forEach(id=>{const old=previous[col]?.[id],loc=current[col]?.[id],srv=server?.[id];const changed=stable(old||null)!==stable(loc||null);if(!changed){if(srv&&!srv._deleted)merged[col][id]=stripCloud(srv);return}const localTs=Number(localEditAt||Date.now()),serverTs=Number(srv?._updatedAtMs||0);if(!srv||localTs>=serverTs){if(loc)merged[col][id]=loc}else if(!srv._deleted){merged[col][id]=stripCloud(srv)}})}S.customers=Object.values(merged.customers);S.sellers=Object.values(merged.sellers);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;const oldMeta=previous.meta||'',localMeta=stable(metaPlain()),serverMeta=cloudMetaCache||{};if(oldMeta!==localMeta){if(Number(localEditAt||Date.now())<Number(serverMeta.updatedAtMs||0)){applyMeta({exists:true,data:()=>serverMeta})}}else if(cloudMetaCache)applyMeta({exists:true,data:()=>cloudMetaCache});return true}
+}const current=liveDocs(),merged={customers:{},sellers:{},cargos:{},orders:{},trips:{},ships:{}};for(const col of Object.keys(merged)){const server=rawCloudRecords(col);const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server||{})]);ids.forEach(id=>{const old=previous[col]?.[id],loc=current[col]?.[id],srv=server?.[id];const changed=stable(old||null)!==stable(loc||null);if(!changed){if(srv&&!srv._deleted)merged[col][id]=stripCloud(srv);return}const localTs=Number(localEditAt||Date.now()),serverTs=Number(srv?._updatedAtMs||0);if(!srv||localTs>=serverTs){if(loc)merged[col][id]=loc}else if(!srv._deleted){merged[col][id]=stripCloud(srv)}})}S.customers=Object.values(merged.customers);S.sellers=Object.values(merged.sellers);S.cargos=Object.values(merged.cargos);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;const oldMeta=previous.meta||'',localMeta=stable(metaPlain()),serverMeta=cloudMetaCache||{};if(oldMeta!==localMeta){if(Number(localEditAt||Date.now())<Number(serverMeta.updatedAtMs||0)){applyMeta({exists:true,data:()=>serverMeta})}}else if(cloudMetaCache)applyMeta({exists:true,data:()=>cloudMetaCache});return true}
 async function uploadPhoto(orderId,dataUrl){
   if(!dataUrl||!String(dataUrl).startsWith('data:image/'))throw new Error('Foto tidak valid');
   if(!auth.currentUser)await auth.signInAnonymously();
@@ -403,9 +403,9 @@ async function migrateLegacyPhotos(){
   // memigrasikan otomatis saat koneksi awal karena dapat membuat boot lambat.
   return;
 }
-async function cloudTick(){if(!serverSnapshotReady)return;try{if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0),hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;if(hasCloudData&&!localPending&&pendingMs<=cloudMs){S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false}else if(localPending){const mergedPending=mergePendingWithServer();if(mergedPending)toast('Menggabungkan perubahan HP dengan data server terbaru…',2500)}else{S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}})}ensureTrip();for(const col of ['customers','sellers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();await migrateLegacyPhotos();cloudReady=true;retryPendingLocalPhotos();if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}render()}else if(!localPending){S.customers=snapshotObjects(window.__snapCustomers);S.sellers=snapshotObjects(window.__snapSellers);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});for(const col of ['customers','sellers','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render();retryPendingLocalPhotos()}}catch(err){console.error('cloudTick',err);cloudReady=false;setCloudState('error');if(localPending)cacheSave();toast('Sinkronisasi gagal saat memuat data: '+String(err&&err.message||err).slice(0,160),9000)}}
+async function cloudTick(){if(!serverSnapshotReady)return;try{if(!cloudBooted){cloudBooted=true;loadCache();ensureTrip();S.orders.forEach(o=>{if(o.paidAmt==null)o.paidAmt=o.paid?sell(o):0});if(!S.v2){S.orders.forEach(o=>{if(o.status===4)o.status=5});S.v2=1}const cloudMs=Number((cloudMetaCache||{}).updatedAtMs||0),pendingMs=Number(localStorage.getItem(K+'-edit-at')||localEditAt||0),hasCloudData=Object.values(cloudShadow.customers).length||Object.values(cloudShadow.sellers).length||Object.values(cloudShadow.cargos).length||Object.values(cloudShadow.orders).length||Object.values(cloudShadow.trips).length;if(hasCloudData&&!localPending&&pendingMs<=cloudMs){S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.cargos=cloudObjects('cargos');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});localPending=false}else if(localPending){const mergedPending=mergePendingWithServer();if(mergedPending)toast('Menggabungkan perubahan HP dengan data server terbaru…',2500)}else{S.customers=cloudObjects('customers');S.sellers=cloudObjects('sellers');S.cargos=cloudObjects('cargos');S.orders=cloudObjects('orders');S.trips=cloudObjects('trips');S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}})}ensureTrip();for(const col of ['customers','sellers','cargos','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();await migrateLegacyPhotos();cloudReady=true;retryPendingLocalPhotos();if(localPending||!hasCloudData){cloudDirty=true;await syncCloud()}else{cacheSave();setCloudState('online')}render()}else if(!localPending){S.customers=snapshotObjects(window.__snapCustomers);S.sellers=snapshotObjects(window.__snapSellers);S.cargos=snapshotObjects(window.__snapCargos);S.orders=snapshotObjects(window.__snapOrders);S.trips=snapshotObjects(window.__snapTrips);S.ships=snapshotMap(window.__snapShips);applyMeta({exists:!!cloudMetaCache,data:()=>cloudMetaCache||{}});for(const col of ['customers','sellers','cargos','orders','trips','ships'])localBase[col]=JSON.parse(JSON.stringify(rawCloudObjects(col)));localBase.meta=cloudMetaCache?stable(cloudMetaCache):stable(metaPlain());cacheBaseSave();cacheSave();render();retryPendingLocalPhotos()}}catch(err){console.error('cloudTick',err);cloudReady=false;setCloudState('error');if(localPending)cacheSave();toast('Sinkronisasi gagal saat memuat data: '+String(err&&err.message||err).slice(0,160),9000)}}
 function handleCloudSnapshot(col,s){window['__snap'+col.charAt(0).toUpperCase()+col.slice(1)]=s;if(!s.metadata.fromCache)initialCloud[col]=true;shadowCollection(col,s);serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()}
-function startCloud(){if(cloudStarted)return;cloudStarted=true;db.collection('customers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('customers',s),cloudError);db.collection('sellers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('sellers',s),cloudError);db.collection('orders').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('orders',s),cloudError);db.collection('trips').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('trips',s),cloudError);db.collection('ships').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('ships',s),cloudError);db.collection('settings').doc('app').onSnapshot({includeMetadataChanges:true},s=>{cloudMetaCache=s.exists?s.data():null;if(!s.metadata.fromCache)initialCloud.meta=true;if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()},cloudError)}
+function startCloud(){if(cloudStarted)return;cloudStarted=true;db.collection('customers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('customers',s),cloudError);db.collection('sellers').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('sellers',s),cloudError);db.collection('cargos').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('cargos',s),cloudError);db.collection('orders').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('orders',s),cloudError);db.collection('trips').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('trips',s),cloudError);db.collection('ships').onSnapshot({includeMetadataChanges:true},s=>handleCloudSnapshot('ships',s),cloudError);db.collection('settings').doc('app').onSnapshot({includeMetadataChanges:true},s=>{cloudMetaCache=s.exists?s.data():null;if(!s.metadata.fromCache)initialCloud.meta=true;if(!cloudBooted)cloudShadow.meta=s.exists?stable(s.data()):'';serverSnapshotReady=Object.values(initialCloud).every(Boolean);if(serverSnapshotReady)clearTimeout(serverWatchdog);cloudTick()},cloudError)}
 let serverWatchdog=setTimeout(()=>{
   if(cloudStarted&&!serverSnapshotReady){
     setCloudState('error');
@@ -461,7 +461,7 @@ return [`Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
 `Halo ${n}, ${i} sudah kubeli ✅ Total ${p}. Kalau belum transfer, ditunggu ya 🙏`,
 `Makasih ${n}! Pembayaran ${p} untuk ${i} sudah kuterima 💚`,
 `Halo ${n}, ${i} sudah OTW Indo ✈️ Nanti kukabarin lagi kalau sudah sampai ya!`,
-`Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, Thank you 💚`][st]}
+`Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, makasih banyak! 💚`][st]}
 const payMsg=(o,a)=>`Makasih ${cust(o.cid).name}! Pembayaran ${idr(a)} untuk ${o.item} sudah kuterima 💚 `+(sisa(o)>0?'Sisa '+idr(sisa(o))+' ya.':'Sudah lunas ✅')
 function toast(html,ms=6000){const t=$('#tt');t.innerHTML='<div class="toast">'+html+'</div>';clearTimeout(toast.h);toast.h=setTimeout(()=>t.innerHTML='',ms)}
 function sheet(html){$('#ov').innerHTML='<div class="scrim" id="sc"><div class="sheet" role="dialog"><button class="sheet-close" id="sheet-close" aria-label="Batal" title="Batal">×</button>'+html+'</div></div>';$('#sc').onclick=ev=>{if(ev.target.id==='sc'||ev.target.id==='sheet-close')close()}}
@@ -484,12 +484,12 @@ function rememberTabScroll(tab=renderedTab){
 function render(){
   rememberTabScroll();
   const targetTab=S.tab;
-  sortCustomers();if(Array.isArray(S.sellers))S.sellers.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));
+  sortCustomers();if(Array.isArray(S.sellers))S.sellers.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));if(Array.isArray(S.cargos))S.cargos.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));
   document.body.classList.toggle('orders-lock',targetTab==='q');document.body.classList.toggle('tab-p',targetTab==='p');document.body.classList.toggle('tab-c',targetTab==='c');document.body.classList.toggle('tab-s',targetTab==='s');
   $('#tn').textContent=vname()+(S.view!=='all'&&vid()!==S.tripId?' (ditutup)':'');const s=stat(vo());$('#ts').textContent=vo().length+' pesanan · untung '+rb(s.m);
   document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===targetTab));
   $('#fab').style.display=(targetTab==='c'||targetTab==='p'||targetTab==='s')?'none':'';
-  $('#m').innerHTML=targetTab==='q'?vQ():targetTab==='p'?vP():targetTab==='c'?vC():targetTab==='s'?vS():vD();
+  $('#m').innerHTML=targetTab==='q'?vQ():targetTab==='p'?vP():targetTab==='c'?vC():targetTab==='s'?vSettings():vD();
   renderedTab=targetTab;
   requestAnimationFrame(()=>{
     const h=document.querySelector('header')?.getBoundingClientRect().height||78,n=document.querySelector('.nav')?.getBoundingClientRect().height||68;
@@ -542,6 +542,28 @@ function vS(){
   if(!(S.sellers||[]).length)return toolbar+'<div class="empty">Belum ada penjual. Tambahkan toko yang sering kamu gunakan.</div>';
   if(!list.length)return toolbar+'<div class="empty">Penjual dengan nama atau lokasi tersebut tidak ditemukan.</div>';
   return toolbar+list.map(x=>`<div class="card"><div class="row"><div style="min-width:0"><div class="who">${e(x.name||'Tanpa nama toko')}</div><div class="fx seller-location">📍 ${e(x.location||'Lokasi belum diisi')}</div></div></div><div class="acts" style="margin-top:5px"><button data-es="${e(x.id)}" style="flex:1">Ubah</button><button data-ds="${e(x.id)}" style="color:var(--hi)">Hapus</button></div></div>`).join('');
+}
+function vCargo(){
+  const q=(S.cqg||'').trim().toLowerCase();
+  const list=(S.cargos||[]).filter(x=>!q||((x.name||'')+' '+(x.type||'')+' '+(x.location||'')+' '+(x.note||'')).toLowerCase().includes(q)).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));
+  const toolbar=`<div class="customer-toolbar"><button class="primary" data-eg="">+ Kargo baru</button><input id="gqs" class="customer-search" placeholder="Cari nama kargo atau lokasi…" value="${e(S.cqg||'')}" autocomplete="off"><div class="customer-count">${list.length} dari ${(S.cargos||[]).length} kargo</div></div>`;
+  if(!(S.cargos||[]).length)return toolbar+'<div class="empty">Belum ada kargo. Tambahkan jasa kargo/forwarder yang sering digunakan.</div>';
+  if(!list.length)return toolbar+'<div class="empty">Kargo yang dicari tidak ditemukan.</div>';
+  return toolbar+list.map(x=>`<div class="card"><div class="row"><div style="min-width:0"><div class="who">${e(x.name||'Tanpa nama kargo')}</div><span class="cargo-kind">${e(x.type||'Jenis belum diatur')}</span><div class="fx seller-location">📍 ${e(x.location||'Lokasi belum diisi')}</div>${x.note?`<div class="fx" style="margin-top:2px">${e(x.note)}</div>`:''}</div></div><div class="acts" style="margin-top:5px"><button data-eg="${e(x.id)}" style="flex:1">Ubah</button><button data-dg="${e(x.id)}" style="color:var(--hi)">Hapus</button></div></div>`).join('');
+}
+function vSettings(){
+  if(S.settingsView==='sellers')return `<div class="settings-head"><button data-settings="home" aria-label="Kembali">‹</button><div><div class="who">List penjual</div><div class="fx">Kelola toko dan lokasi yang sering digunakan.</div></div></div>`+vS();
+  if(S.settingsView==='cargos')return `<div class="settings-head"><button data-settings="home" aria-label="Kembali">‹</button><div><div class="who">List kargo</div><div class="fx">Kelola jasa kargo/forwarder yang tersedia.</div></div></div>`+vCargo();
+  return `<div style="margin:8px 0 14px"><div class="who" style="font-size:17px">Pengaturan</div><div class="fx">Kelola data pendukung aplikasi tanpa mengubah pesanan.</div></div><div class="settings-menu">
+  <button class="settings-card" data-settings="sellers"><span class="ico">🏪</span><span><div class="stitle">List penjual</div><div class="sdesc">Nama toko dan lokasi penjual</div></span><span class="arrow">›</span></button>
+  <button class="settings-card" data-settings="cargos"><span class="ico">🚚</span><span><div class="stitle">List kargo</div><div class="sdesc">Jasa kargo, jenis layanan, dan lokasi</div></span><span class="arrow">›</span></button>
+  </div>`;
+}
+function cargoSheet(id){
+  const x=(S.cargos||[]).find(z=>z.id===id)||{name:'',type:'Kargo udara',location:'',note:''};
+  sheet(`<h1>${id?'Ubah kargo':'Kargo baru'}</h1><label>Nama kargo / forwarder</label><input id="g-n" value="${e(x.name)}" placeholder="mis. DHL, EMS, Forwarder ABC"><label>Jenis layanan</label><select id="g-t"><option ${x.type==='Kargo udara'?'selected':''}>Kargo udara</option><option ${x.type==='Kargo laut'?'selected':''}>Kargo laut</option><option ${x.type==='Koper'?'selected':''}>Koper</option><option ${x.type==='Lainnya'?'selected':''}>Lainnya</option></select><label>Lokasi</label><input id="g-l" value="${e(x.location)}" placeholder="mis. Tokyo / Jakarta"><label>Catatan</label><textarea id="g-c" rows="2" placeholder="Catatan tambahan (opsional)">${e(x.note)}</textarea><button class="primary" id="g-ok">Simpan</button>${id?'<button style="width:100%;margin-top:8px;color:var(--hi)" id="g-del">Hapus kargo</button>':''}`);
+  $('#g-ok').onclick=()=>{const name=$('#g-n').value.trim();if(!name)return toast('Nama kargo wajib diisi',2500);const d={name,type:$('#g-t').value,location:$('#g-l').value.trim(),note:$('#g-c').value.trim()};if(id)Object.assign(x,d);else S.cargos.push({id:uid(),...d});save();close();render()};
+  if(id)$('#g-del').onclick=()=>{const b=$('#g-del');if(!b.dataset.cf){b.dataset.cf=1;b.textContent='Yakin hapus? Ketuk lagi';return}S.cargos=S.cargos.filter(z=>z.id!==id);save();close();render()}
 }
 
 function tagih(c){const os=S.orders.filter(o=>o.cid===c.id&&bought(o)&&sisa(o)>0);
@@ -890,13 +912,13 @@ const t=ev.target.closest('button');if(!t)return;const d=t.dataset;
 if(t.id==='zc')return close();
 if(d.t){rememberTabScroll(S.tab);S.tab=d.t;save();render()}else if(d.f){rememberTabScroll();S.filter=+d.f;render()}
 else if(d.s){const[i,n]=d.s.split(':');reqStatus(i,+n)}else if(d.pay)paySheet(d.pay);else if(d.pk){S.pk=d.pk;save();render()}else if(d.shipdone){S.ships[d.shipdone].st=3;save();render()}else if(d.tv){S.view=d.tv;S.filter=-1;S.tab='q';save();render()}else if(d.dtrip){deleteTrip(d.dtrip)}
-else if(d.kpall){const td=S.orders.filter(o=>bought(o)&&(o.pm||'kargo')==='koper'&&!o.resi&&!o.packed).map(o=>o.id);S.kp=S.kp.length===td.length?[]:td;render()}else if(d.kpok){S.orders.forEach(o=>{if(S.kp.includes(o.id))o.packed=true});S.kp=[];save();render()}else if(d.kpundo){S.orders.find(x=>x.id===d.kpundo).packed=false;save();render()}else if(d.ship!==undefined)shipSheet(d.ship||null);else if(d.pdf)savePdf(d.pdf);else if(d.imp){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Ini menimpa data sekarang. Ketuk lagi untuk pilih file';return}$('#imp').click()}else if(d.eo)orderSheet(d.eo);else if(d.ec!==undefined)custSheet(d.ec);else if(d.es!==undefined)sellerSheet(d.es);else if(d.ds) { if(confirm('Hapus penjual ini?')){S.sellers=S.sellers.filter(x=>x.id!==d.ds);save();render()} }
+else if(d.kpall){const td=S.orders.filter(o=>bought(o)&&(o.pm||'kargo')==='koper'&&!o.resi&&!o.packed).map(o=>o.id);S.kp=S.kp.length===td.length?[]:td;render()}else if(d.kpok){S.orders.forEach(o=>{if(S.kp.includes(o.id))o.packed=true});S.kp=[];save();render()}else if(d.kpundo){S.orders.find(x=>x.id===d.kpundo).packed=false;save();render()}else if(d.ship!==undefined)shipSheet(d.ship||null);else if(d.pdf)savePdf(d.pdf);else if(d.imp){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Ini menimpa data sekarang. Ketuk lagi untuk pilih file';return}$('#imp').click()}else if(d.eo)orderSheet(d.eo);else if(d.ec!==undefined)custSheet(d.ec);else if(d.es!==undefined)sellerSheet(d.es);else if(d.eg!==undefined)cargoSheet(d.eg);else if(d.dg) { if(confirm('Hapus kargo ini?')){S.cargos=S.cargos.filter(x=>x.id!==d.dg);save();render()} }else if(d.settings){S.settingsView=d.settings;save();render()}else if(d.ds) { if(confirm('Hapus penjual ini?')){S.sellers=S.sellers.filter(x=>x.id!==d.ds);save();render()} }
 else if(t.id==='fab')orderSheet();else if(t.id==='gear')tripSheet();
 else if(t.id==='bak')backup()
 else if(t.id==='newtrip'){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Yakin cutoff? Pesanan lama tetap tersimpan. Ketuk lagi';return}
 const ct=S.trips.find(x=>x.id===S.tripId);ct.name=S.trip.name;ct.closedAt=Date.now();const nid=uid();S.trips.push({id:nid,name:'Trip baru',ts:Date.now()});S.tripId=nid;S.trip.name='Trip baru';S.view='cur';S.filter=-1;S.tab='q';save();render()}
 else if(t.id==='live')live(t)});
-document.addEventListener('input',ev=>{if(ev.target.id==='cqs'){S.cq=ev.target.value;render();const x=document.querySelector('#cqs');if(x){x.focus();x.setSelectionRange(S.cq.length,S.cq.length)}return}if(ev.target.id==='sqs'){S.sq=ev.target.value;render();const x=document.querySelector('#sqs');if(x){x.focus();x.setSelectionRange(S.sq.length,S.sq.length)}return}const c=ev.target.dataset.r;if(c){S.rates[c]=num(ev.target.value);S.ratesAt=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});save()}});
+document.addEventListener('input',ev=>{if(ev.target.id==='cqs'){S.cq=ev.target.value;render();const x=document.querySelector('#cqs');if(x){x.focus();x.setSelectionRange(S.cq.length,S.cq.length)}return}if(ev.target.id==='gqs'){S.cqg=ev.target.value;render();const x=document.querySelector('#gqs');if(x){x.focus();x.setSelectionRange(S.cqg.length,S.cqg.length)}return}if(ev.target.id==='sqs'){S.sq=ev.target.value;render();const x=document.querySelector('#sqs');if(x){x.focus();x.setSelectionRange(S.sq.length,S.sq.length)}return}const c=ev.target.dataset.r;if(c){S.rates[c]=num(ev.target.value);S.ratesAt=new Date().toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'});save()}});
 async function live(b){b.textContent='Lagi ambil kurs…';try{const ac=new AbortController();setTimeout(()=>ac.abort(),7000);
 const j=await (await fetch('https://open.er-api.com/v6/latest/IDR',{signal:ac.signal})).json();
 Object.keys(S.rates).forEach(c=>{if(j.rates&&j.rates[c])S.rates[c]=Math.round(1/j.rates[c]*100)/100});
