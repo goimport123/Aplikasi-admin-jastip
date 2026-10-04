@@ -461,7 +461,7 @@ return [`Halo ${n}, lagi aku cariin ${i} ya. Nanti kukabarin kalau ketemu 🙌`,
 `Halo ${n}, ${i} sudah kubeli ✅ Total ${p}. Kalau belum transfer, ditunggu ya 🙏`,
 `Makasih ${n}! Pembayaran ${p} untuk ${i} sudah kuterima 💚`,
 `Halo ${n}, ${i} sudah OTW Indo ✈️ Nanti kukabarin lagi kalau sudah sampai ya!`,
-`Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, makasih banyak! 💚`][st]}
+`Halo ${n}, ${i} sudah dikirim ke kamu ya 📦 Kabarin kalau sudah sampai, Thank you 💚`][st]}
 const payMsg=(o,a)=>`Makasih ${cust(o.cid).name}! Pembayaran ${idr(a)} untuk ${o.item} sudah kuterima 💚 `+(sisa(o)>0?'Sisa '+idr(sisa(o))+' ya.':'Sudah lunas ✅')
 function toast(html,ms=6000){const t=$('#tt');t.innerHTML='<div class="toast">'+html+'</div>';clearTimeout(toast.h);toast.h=setTimeout(()=>t.innerHTML='',ms)}
 function sheet(html){$('#ov').innerHTML='<div class="scrim" id="sc"><div class="sheet" role="dialog"><button class="sheet-close" id="sheet-close" aria-label="Batal" title="Batal">×</button>'+html+'</div></div>';$('#sc').onclick=ev=>{if(ev.target.id==='sc'||ev.target.id==='sheet-close')close()}}
