@@ -323,13 +323,33 @@ function cloudError(err){
 function stripCloud(x){if(!x)return null;const y={...x};delete y._updatedAtMs;delete y._clientId;delete y._deleted;return y}
 function mergePendingWithServer(){const previous=cacheBaseLoad();if(!previous)return false;const current=liveDocs(),merged={customers:{},orders:{},trips:{},ships:{}};for(const col of Object.keys(merged)){const server=rawCloudRecords(col);const ids=new Set([...Object.keys(previous[col]||{}),...Object.keys(current[col]||{}),...Object.keys(server||{})]);ids.forEach(id=>{const old=previous[col]?.[id],loc=current[col]?.[id],srv=server?.[id];const changed=stable(old||null)!==stable(loc||null);if(!changed){if(srv&&!srv._deleted)merged[col][id]=stripCloud(srv);return}const localTs=Number(localEditAt||Date.now()),serverTs=Number(srv?._updatedAtMs||0);if(!srv||localTs>=serverTs){if(loc)merged[col][id]=loc}else if(!srv._deleted){merged[col][id]=stripCloud(srv)}})}S.customers=Object.values(merged.customers);S.orders=Object.values(merged.orders);S.trips=Object.values(merged.trips);S.ships=merged.ships;const oldMeta=previous.meta||'',localMeta=stable(metaPlain()),serverMeta=cloudMetaCache||{};if(oldMeta!==localMeta){if(Number(localEditAt||Date.now())<Number(serverMeta.updatedAtMs||0)){applyMeta({exists:true,data:()=>serverMeta})}}else if(cloudMetaCache)applyMeta({exists:true,data:()=>cloudMetaCache});return true}
 async function uploadPhoto(orderId,dataUrl){
+  if(!dataUrl||!String(dataUrl).startsWith('data:image/'))throw new Error('Foto tidak valid');
+  if(!auth.currentUser)await auth.signInAnonymously();
   const path='orders/'+orderId+'/'+Date.now()+'.jpg';
-  const ref=storage.ref(path);
-  // Upload sebagai Blob JPEG hasil kompresi, bukan data URL mentah.
-  const blob=await (await fetch(dataUrl)).blob();
-  await ref.put(blob,{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});
+  const ref=storage.ref().child(path);
+  // Upload langsung sebagai data_url hasil kompresi. Ini lebih stabil di HP
+  // daripada fetch(dataUrl)->Blob, terutama pada browser mobile.
+  await ref.putString(dataUrl,'data_url',{contentType:'image/jpeg',cacheControl:'public,max-age=31536000'});
   const url=await ref.getDownloadURL();
   return {url,path};
+}
+async function photoUrlToDataUrl(url,path){
+  if(!url)return null;
+  // Untuk PDF jsPDF membutuhkan data image, bukan URL Firebase.
+  // Jika photoPath tersedia, ambil langsung dari Firebase Storage agar tidak
+  // bergantung pada URL download lama.
+  let bytes=null;
+  if(path){
+    try{bytes=await storage.ref().child(path).getBytes(5*1024*1024)}catch(e){console.warn('getBytes foto gagal',e)}
+  }
+  if(bytes){
+    let bin='';for(let i=0;i<bytes.length;i+=0x8000)bin+=String.fromCharCode(...bytes.subarray(i,i+0x8000));
+    return 'data:image/jpeg;base64,'+btoa(bin);
+  }
+  const r=await fetch(url,{mode:'cors',cache:'no-store'});
+  if(!r.ok)throw new Error('Foto tidak dapat diunduh untuk PDF ('+r.status+')');
+  const b=await r.blob();
+  return await new Promise((resolve,reject)=>{const rd=new FileReader();rd.onload=()=>resolve(rd.result);rd.onerror=reject;rd.readAsDataURL(b)});
 }
 async function deletePhoto(path){
   if(!path)return;
@@ -395,22 +415,33 @@ const close=()=>{$('#ov').innerHTML=''};
 function reqStatus(id,i){const o=S.orders.find(x=>x.id===id);if(i===3&&sisa(o)>0)paySheet(id);else setStatus(id,i)}
 function setStatus(id,i){
   const o=S.orders.find(x=>x.id===id);if(!o)return;
-  const list=document.querySelector('.orders-scroll');
-  const scrollTop=list?list.scrollTop:0;
+  rememberTabScroll('q');
   o.status=i;save();render();
-  requestAnimationFrame(()=>{const next=document.querySelector('.orders-scroll');if(next)next.scrollTop=scrollTop;});
 }
 function stat(list){const b=list.filter(bought),rev=b.reduce((s,o)=>s+sell(o),0),c=b.reduce((s,o)=>s+cost(o),0);
 const paid=list.reduce((s,o)=>s+paidOf(o),0);return{n:list.length,nb:b.length,rev,c,m:rev-c,paid,out:b.reduce((s,o)=>s+sisa(o),0),wait:list.filter(o=>!bought(o)).reduce((s,o)=>s+sell(o),0)}}
 
+let renderedTab=S.tab;
+const tabScroll={q:0,p:0,c:0,d:0};
+function rememberTabScroll(tab=renderedTab){
+  const el=document.querySelector('.orders-scroll');
+  if(el&&tab==='q')tabScroll.q=el.scrollTop;
+}
 function render(){
-sortCustomers();
-document.body.classList.toggle('orders-lock',S.tab==='q');
-$('#tn').textContent=vname()+(S.view!=='all'&&vid()!==S.tripId?' (ditutup)':'');const s=stat(vo());$('#ts').textContent=vo().length+' pesanan · untung '+rb(s.m);
-document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===S.tab));
-$('#fab').style.display=(S.tab==='c'||S.tab==='p')?'none':'';
-$('#m').innerHTML=S.tab==='q'?vQ():S.tab==='p'?vP():S.tab==='c'?vC():vD();
-requestAnimationFrame(()=>{const h=document.querySelector('header')?.getBoundingClientRect().height||78,n=document.querySelector('.nav')?.getBoundingClientRect().height||68;document.documentElement.style.setProperty('--head-h',h+'px');document.documentElement.style.setProperty('--nav-h',n+'px')});
+  rememberTabScroll();
+  const targetTab=S.tab;
+  sortCustomers();
+  document.body.classList.toggle('orders-lock',targetTab==='q');
+  $('#tn').textContent=vname()+(S.view!=='all'&&vid()!==S.tripId?' (ditutup)':'');const s=stat(vo());$('#ts').textContent=vo().length+' pesanan · untung '+rb(s.m);
+  document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===targetTab));
+  $('#fab').style.display=(targetTab==='c'||targetTab==='p')?'none':'';
+  $('#m').innerHTML=targetTab==='q'?vQ():targetTab==='p'?vP():targetTab==='c'?vC():vD();
+  renderedTab=targetTab;
+  requestAnimationFrame(()=>{
+    const h=document.querySelector('header')?.getBoundingClientRect().height||78,n=document.querySelector('.nav')?.getBoundingClientRect().height||68;
+    document.documentElement.style.setProperty('--head-h',h+'px');document.documentElement.style.setProperty('--nav-h',n+'px');
+    if(targetTab==='q'){const el=document.querySelector('.orders-scroll');if(el)el.scrollTop=tabScroll.q;}
+  });
 }
 
 function vQ(){
@@ -567,7 +598,8 @@ if(newPhotoIsData){
     }
   }catch(err){
     console.error('uploadPhoto',err);
-    toast('Pesanan tersimpan, tetapi foto gagal diunggah. Cek Firebase Storage/Rules lalu coba pilih foto lagi.',7000);
+    const code=err&&err.code?` (${err.code})`:'';
+    toast('Pesanan tersimpan, tetapi foto gagal diunggah'+code+'. Coba pilih foto lagi; detail ada di Console.',8000);
   }
 }
 else if(old&&oldPhoto&&!photo){
@@ -643,16 +675,18 @@ save();return n};
 $('#s-ok').onclick=()=>{if(read()){close();render()}};
 if(r){$('#s-pdf').onclick=()=>{const n=read();if(n){render();savePdf(n)}};
 $('#s-del').onclick=()=>{const b=$('#s-del');if(!b.dataset.cf){b.dataset.cf=1;return b.textContent='Yakin? Ketuk lagi'}S.orders.forEach(o=>{if(o.resi===r)o.resi=''});delete S.ships[r];save();close();render()}}}
-function pdfBlob(r,price){const d=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=210,M=14,m=S.ships[r]||{},os=S.orders.filter(o=>o.resi===r),T=(t,x,y,o)=>d.text(String(t),x,y,o);let y=M,grand=0;
+async function pdfBlob(r,price){const d=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=210,M=14,m=S.ships[r]||{},os=S.orders.filter(o=>o.resi===r),T=(t,x,y,o)=>d.text(String(t),x,y,o);let y=M,grand=0;
 d.setFont('helvetica','bold');d.setFontSize(15);T('PACKING LIST KARGO',M,y+5);d.setFontSize(11);T('Resi: '+r,W-M,y+5,{align:'right'});if(m.mk){d.setFontSize(10);T('Marking: '+m.mk,W-M,y+11,{align:'right'})}
 d.setFont('helvetica','normal');d.setFontSize(9);y+=11;T([...new Set(os.map(o=>tname(o.tripId)))].join(', ')+'  |  '+new Date().toLocaleDateString('id-ID',{dateStyle:'long'}),M,y);y+=5;
 T('Forwarder: '+(m.fw||'-')+'  |  Status: '+SHIP[m.st||0]+'  |  Total: '+os.reduce((x,o)=>x+o.qty,0)+' pcs',M,y);y+=4;d.setDrawColor(150);d.line(M,y,W-M,y);y+=6;
 const g={};os.forEach(o=>(g[o.cid]=g[o.cid]||[]).push(o));
 for(const cid in g){const c=cust(cid);let sub=0;if(y>255){d.addPage();y=M}
 d.setFillColor(228,239,233);d.rect(M,y,W-2*M,7,'F');d.setFont('helvetica','bold');d.setFontSize(10);T(c.name+(c.wa?'  ('+c.wa+')':''),M+2,y+5);y+=10;
-for(const o of g[cid]){const nm=d.splitTextToSize(o.item+(o.store?' ('+o.store+')':''),price?100:140),h=Math.max(o.photo?14:0,nm.length*4.5+3);
+for(const o of g[cid]){const nm=d.splitTextToSize(o.item+(o.store?' ('+o.store+')':''),price?100:140);let photoData=null;
+if(o.photo){try{photoData=await photoUrlToDataUrl(o.photo,o.photoPath)}catch(err){console.warn('Foto PDF tidak dapat dimuat',o.id,err)}}
+const h=Math.max(photoData?14:0,nm.length*4.5+3);
 if(y+h>278){d.addPage();y=M}
-if(o.photo){try{const q=d.getImageProperties(o.photo),k=Math.min(12/q.width,12/q.height);d.addImage(o.photo,'JPEG',M,y,q.width*k,q.height*k)}catch(x){}}
+if(photoData){try{const q=d.getImageProperties(photoData),k=Math.min(12/q.width,12/q.height);d.addImage(photoData,'JPEG',M,y,q.width*k,q.height*k)}catch(x){console.warn('Foto gagal dimasukkan ke PDF',o.id,x)}}
 d.setFont('helvetica','normal');d.setFontSize(9);d.text(nm,M+16,y+4);T('x'+o.qty,M+(price?122:150),y+4);
 if(price){T(idr(sell(o)),W-M,y+4,{align:'right'});sub+=sell(o)}
 d.setDrawColor(215);d.line(M,y+h,W-M,y+h);y+=h+2}
@@ -660,9 +694,9 @@ if(price){d.setFont('helvetica','bold');T('Subtotal: '+idr(sub),W-M,y+3,{align:'
 if(price){if(y>270){d.addPage();y=M}d.setFont('helvetica','bold');d.setFontSize(11);T('TOTAL HARGA JUAL: '+idr(grand),W-M,y+4,{align:'right'})}
 return d.output('blob')}
 async function savePdf(r){if(!window.jspdf)return toast('Pembuat PDF belum termuat. Cek internet lalu coba lagi.',4000);
-try{const b=pdfBlob(r,S.pdfPrice!==false),fn='packing-list-'+r.replace(/[^\w-]+/g,'_')+'.pdf';
+try{toast('Menyiapkan PDF + foto…',3500);const b=await pdfBlob(r,S.pdfPrice!==false),fn='packing-list-'+r.replace(/[^\w-]+/g,'_')+'.pdf';
 const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000)}
-catch(er){if(er&&er.code==='declined')return;toast('PDF gagal dibuat, coba lagi ya',4000)}}
+catch(er){console.error('savePdf',er);if(er&&er.code==='declined')return;toast('PDF gagal dibuat, coba lagi ya',5000)}}
 addEventListener('input',ev=>{if(ev.target.id==='qs'){S.q=ev.target.value;render();const el=$('#qs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}else if(ev.target.id==='cqs'){S.cq=ev.target.value;render();const el=$('#cqs');el.focus();el.setSelectionRange(el.value.length,el.value.length)}});
 addEventListener('change',ev=>{const t=ev.target,d=t.dataset,f=id=>S.orders.find(x=>x.id===id);
 if(d.pkd){f(d.pkd).packed=t.checked;save();render()}else if(d.pm){f(d.pm).pm=t.value;save();render()}
@@ -744,7 +778,7 @@ $('#t-ok').onclick=()=>{S.trip.name=$('#t-n').value.trim()||'Trip baru';{const c
 document.addEventListener('click',ev=>{const z=ev.target.closest('[data-z]');if(z){const o=S.orders.find(x=>x.id===z.dataset.z);if(o)sheet(`<div class="who">${e(o.item)}</div><img class="big" style="max-height:70vh" src="${o.photo}" alt="Foto ${e(o.item)}"><button class="primary" id="zc">Tutup</button>`);return}
 const t=ev.target.closest('button');if(!t)return;const d=t.dataset;
 if(t.id==='zc')return close();
-if(d.t){S.tab=d.t;save();render()}else if(d.f){S.filter=+d.f;render()}
+if(d.t){rememberTabScroll(S.tab);S.tab=d.t;save();render()}else if(d.f){rememberTabScroll();S.filter=+d.f;render()}
 else if(d.s){const[i,n]=d.s.split(':');reqStatus(i,+n)}else if(d.pay)paySheet(d.pay);else if(d.pk){S.pk=d.pk;save();render()}else if(d.shipdone){S.ships[d.shipdone].st=3;save();render()}else if(d.tv){S.view=d.tv;S.filter=-1;S.tab='q';save();render()}else if(d.dtrip){deleteTrip(d.dtrip)}
 else if(d.kpall){const td=S.orders.filter(o=>bought(o)&&(o.pm||'kargo')==='koper'&&!o.resi&&!o.packed).map(o=>o.id);S.kp=S.kp.length===td.length?[]:td;render()}else if(d.kpok){S.orders.forEach(o=>{if(S.kp.includes(o.id))o.packed=true});S.kp=[];save();render()}else if(d.kpundo){S.orders.find(x=>x.id===d.kpundo).packed=false;save();render()}else if(d.ship!==undefined)shipSheet(d.ship||null);else if(d.pdf)savePdf(d.pdf);else if(d.imp){if(!t.dataset.cf){t.dataset.cf=1;t.textContent='Ini menimpa data sekarang. Ketuk lagi untuk pilih file';return}$('#imp').click()}else if(d.eo)orderSheet(d.eo);else if(d.ec!==undefined)custSheet(d.ec);
 else if(t.id==='fab')orderSheet();else if(t.id==='gear')tripSheet();
