@@ -612,7 +612,7 @@ function downloadCustomerInvoice(cid,returnFile=false){
   const val=id=>Math.max(0,num($('#'+id)?.value)),fee=val('inv-fee'),pack=val('inv-pack'),ship=val('inv-ship'),sub=os.reduce((a,o)=>a+sell(o),0),grand=sub+fee+pack+ship;
   const compact=os.length<5;
   const d=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=210,M=compact?11:15,R=W-M;let y=compact?9:18;
-  const fs=n=>Math.round(n*(compact?1:1.35)*10)/10;
+  const fs=n=>Math.round(n*(compact?1.18:1.35)*10)/10;
   const text=(t,x,yy,opt)=>d.text(String(t??''),x,yy,opt||{}),line=(yy)=>{d.setDrawColor(226,174,174);d.line(M,yy,R,yy)};
   d.setFillColor(255,250,249);d.rect(0,0,W,297,'F');d.setDrawColor(222,160,160);d.setLineWidth(.7);d.roundedRect(7,7,W-14,283,5,5,'S');
   try{d.addImage(FBA_INVOICE_LOGO,'PNG',W/2-(compact?10:13),compact?8:8,compact?20:26,compact?15:20)}catch(err){d.setTextColor(166,91,94);d.setFont('times','bold');d.setFontSize(fs(18));text('Found by Amanda',W/2,22,{align:'center'})}
@@ -634,13 +634,13 @@ function downloadCustomerInvoice(cid,returnFile=false){
   if(!compact&&y>180){d.addPage();y=20}
   const summaryRow=(label,amount,bold=false)=>{d.setFont('helvetica',bold?'bold':'normal');d.setFontSize(fs(compact?(bold?8.5:7): (bold?11:9)));d.setTextColor(bold?166:105,bold?75:69,bold?75:68);text(label,R-(compact?61:65),y);d.setTextColor(25,25,25);text(idr(amount),R-3,y,{align:'right'});y+=compact?4.7:7};
   summaryRow('SUBTOTAL BARANG',sub);if(fee)summaryRow('FEE JASTIP',fee);if(pack)summaryRow('FEE PACKING',pack);if(ship)summaryRow('ONGKIR',ship);line(y-1.5);d.setFillColor(248,232,231);d.roundedRect(M,y,W-2*M,compact?10:13,3,3,'F');d.setFont('helvetica','bold');d.setTextColor(150,67,71);d.setFontSize(fs(compact?8.5:9));text('TOTAL BAYAR',M+5,y+(compact?6.5:8));const totalText=idr(grand);let totalFont=fs(compact?11:15);d.setFontSize(totalFont);while(d.getTextWidth(totalText)>W-2*M-48&&totalFont>fs(8)){totalFont-=0.5;d.setFontSize(totalFont)}text(totalText,R-4,y+(compact?6.5:8),{align:'right'});y+=compact?14:22;
-  const bankLines=d.splitTextToSize(invoiceBankText(os),W-2*M-12),payLines=d.splitTextToSize($('#inv-paynote')?.value||'',W-2*M-12),bankLineH=compact?4:5.6,payLineH=compact?3.8:5,bankBoxH=(compact?12:15)+bankLines.length*bankLineH+payLines.length*payLineH;
+  const bankLines=d.splitTextToSize(invoiceBankText(os),W-2*M-12),payLines=d.splitTextToSize($('#inv-paynote')?.value||'',W-2*M-12),bankLineH=compact?3.9:5.6,payLineH=compact?3.4:5,bankBoxH=(compact?9:15)+bankLines.length*bankLineH+payLines.length*payLineH;
   if(!compact&&y+bankBoxH+22>282){d.addPage();y=20}
   // For invoices with fewer than five order lines, fit every section on page one.
   if(compact&&y+bankBoxH+18>280){
     d.setFontSize(fs(7));
   }
-  d.setFillColor(250,241,240);d.roundedRect(M,y,W-2*M,bankBoxH,3,3,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(compact?7:8));text('REKENING PEMBAYARAN',M+5,y+(compact?5.5:7));d.setTextColor(25,25,25);d.setFont('helvetica','normal');d.setFontSize(fs(compact?7.5:9));d.text(bankLines.slice(0,compact?5:20),M+5,y+(compact?10:14));if(payLines.length){d.setTextColor(105,69,68);d.setFontSize(fs(compact?6.5:8));d.text(payLines.slice(0,compact?2:10),M+5,y+(compact?10:14)+bankLines.length*bankLineH)}
+  d.setFillColor(250,241,240);d.roundedRect(M,y,W-2*M,bankBoxH,3,3,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(compact?7:8));text('REKENING PEMBAYARAN',M+5,y+(compact?5.5:7));d.setTextColor(25,25,25);d.setFont('helvetica','normal');d.setFontSize(fs(compact?7.5:9));d.text(bankLines.slice(0,compact?30:40),M+5,y+(compact?9:14));if(payLines.length){d.setTextColor(105,69,68);d.setFontSize(fs(compact?7:8));d.text(payLines.slice(0,compact?3:10),M+5,y+(compact?9:14)+bankLines.length*bankLineH)}
   y+=bankBoxH+(compact?3:5);line(y);d.setTextColor(166,91,94);d.setFont('times','normal');d.setFontSize(fs(compact?9:12));text('THANK YOU',W/2,y+(compact?5:8),{align:'center'});d.setFont('helvetica','normal');d.setFontSize(fs(compact?6.5:8));text('FOR SHOPPING WITH US',W/2,y+(compact?10:14),{align:'center'});
   const filename=(($('#inv-no')?.value||'invoice').replace(/[^\w-]+/g,'_'))+'.pdf';
   if(returnFile)return new File([d.output('blob')],filename,{type:'application/pdf'});
