@@ -574,11 +574,10 @@ function invoiceSheet(cid){
   <label>Ongkir (Rp)</label><input id="inv-ship" inputmode="numeric" value="0">
   <label>Rekening pembayaran (dari Pengaturan &gt; Rekening pembayaran)</label><div id="inv-bank-preview" class="invoice-bank-preview"></div>
   <label>Catatan pembayaran</label><input id="inv-paynote" value="Mohon transfer sesuai total pembayaran dan kirimkan bukti pembayaran.">
-  <div class="invoice-actions"><button class="primary" id="inv-download">Unduh invoice PDF</button><button type="button" id="inv-whatsapp">Kirim invoice ke WhatsApp</button></div>
-  <div class="fx" style="margin-top:8px">Invoice PDF dapat diunduh, dan ringkasan invoice siap kirim akan dibuka langsung di WhatsApp. Pembuatan invoice tidak mengubah data pesanan atau mekanisme sinkronisasi.</div></div>`);
+  <div class="invoice-actions"><button type="button" class="primary" id="inv-whatsapp" style="width:100%;flex:1">Kirim invoice ke WhatsApp</button></div>
+  <div class="fx invoice-wa-note" style="margin-top:6px;text-align:center">Pastikan nomor WA pelanggan sudah dimasukkan.</div></div>`);
   document.querySelectorAll('[data-inv-item]').forEach(el=>el.addEventListener('change',refreshInvoiceBank));
   refreshInvoiceBank();
-  $('#inv-download').onclick=()=>downloadCustomerInvoice(cid);
   $('#inv-whatsapp').onclick=()=>sendInvoiceWhatsApp(cid);
 }
 function sendInvoiceWhatsApp(cid){
