@@ -589,41 +589,63 @@ function sendInvoiceWhatsApp(cid){
   const val=id=>Math.max(0,num($('#'+id)?.value)),fee=val('inv-fee'),pack=val('inv-pack'),ship=val('inv-ship'),sub=os.reduce((a,o)=>a+sell(o),0),grand=sub+fee+pack+ship;
   const lines=os.map((o,i)=>`${i+1}. ${o.item||'Barang'}${o.store?' — '+o.store:''}\n   ${Math.max(1,num(o.qty)||1)} pcs × ${idr(Math.round(sell(o)/Math.max(1,num(o.qty)||1)))} = ${idr(sell(o))}`);
   const msg=[`*FOUND BY AMANDA — INVOICE*`,`No. Invoice: ${$('#inv-no')?.value||'FBA-INVOICE'}`,`Tanggal: ${new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'})}`,``,`Halo ${c.name||'Kak'}, berikut rincian invoice pesanan kamu:`,``,...lines,``,`Subtotal barang: ${idr(sub)}`,`Ongkir: ${idr(ship)}`,`*TOTAL PEMBAYARAN: ${idr(grand)}*`,``,`Kurir: ${$('#inv-courier')?.value||'-'}`,``,`*Rekening pembayaran*`,invoiceBankText(os),``,`Mohon transfer sesuai total pembayaran dan kirimkan bukti pembayaran. Terima kasih sudah berbelanja dengan Found by Amanda 🤍`].join('\n');
+  // Generate the same PDF used by the download button, then attach it through the device share sheet when supported.
+  const pdfFile=downloadCustomerInvoice(cid,true);
+  if(!pdfFile)return;
+  if(navigator.share && navigator.canShare && navigator.canShare({files:[pdfFile]})){
+    navigator.share({files:[pdfFile],title:$('#inv-no')?.value||'Invoice Found by Amanda',text:msg})
+      .then(()=>toast('Pilih WhatsApp pada menu berbagi untuk mengirim PDF invoice.',4000))
+      .catch(err=>{if(err && err.name!=='AbortError')toast('Berbagi PDF dibatalkan atau tidak didukung. Silakan unduh PDF dan lampirkan di WhatsApp.',4500)});
+    return;
+  }
+  // Browsers without file sharing cannot attach local files to a wa.me link. Download PDF and open the prefilled chat.
+  const url=URL.createObjectURL(pdfFile),a=document.createElement('a');a.href=url;a.download=pdfFile.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
   window.open(waLink(c.wa,msg),'_blank','noopener');
+  toast('PDF invoice diunduh. Lampirkan file PDF tersebut di chat WhatsApp yang terbuka.',5000);
 }
 
-function downloadCustomerInvoice(cid){
+function downloadCustomerInvoice(cid,returnFile=false){
   if(!window.jspdf){toast('Pembuat PDF belum termuat. Periksa koneksi internet lalu coba lagi.',4000);return}
   const c=customerForOrder({cid}), ids=[...document.querySelectorAll('[data-inv-item]:checked')].map(x=>x.dataset.invItem);
   const os=S.orders.filter(o=>String(o.cid)===String(cid)&&ids.includes(String(o.id)));
   if(!os.length){toast('Pilih minimal satu pesanan untuk invoice.',2500);return}
   const val=id=>Math.max(0,num($('#'+id)?.value)),fee=val('inv-fee'),pack=val('inv-pack'),ship=val('inv-ship'),sub=os.reduce((a,o)=>a+sell(o),0),grand=sub+fee+pack+ship;
-  const d=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=210,M=15,R=W-M;let y=18;const fs=n=>Math.round(n*1.35*10)/10;
+  const compact=os.length<5;
+  const d=new window.jspdf.jsPDF({unit:'mm',format:'a4'}),W=210,M=compact?11:15,R=W-M;let y=compact?9:18;
+  const fs=n=>Math.round(n*(compact?1:1.35)*10)/10;
   const text=(t,x,yy,opt)=>d.text(String(t??''),x,yy,opt||{}),line=(yy)=>{d.setDrawColor(226,174,174);d.line(M,yy,R,yy)};
   d.setFillColor(255,250,249);d.rect(0,0,W,297,'F');d.setDrawColor(222,160,160);d.setLineWidth(.7);d.roundedRect(7,7,W-14,283,5,5,'S');
-  try{d.addImage(FBA_INVOICE_LOGO,'PNG',W/2-13,8,26,20)}catch(err){d.setTextColor(166,91,94);d.setFont('times','bold');d.setFontSize(fs(18));text('Found by Amanda',W/2,22,{align:'center'})}
-  d.setFont('times','normal');d.setFontSize(fs(25));text('I N V O I C E',W/2,40,{align:'center'});d.setFont('helvetica','normal');d.setFontSize(fs(9));text('JASTIP SERVICE',W/2,46,{align:'center'});
-  d.setFillColor(248,232,231);d.roundedRect(68,50,74,8,3,3,'F');d.setTextColor(90,53,54);d.setFontSize(fs(9));text($('#inv-no')?.value||'FBA-INVOICE',W/2,55.2,{align:'center'});text(new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}),W/2,64,{align:'center'});
-  y=72;d.setFillColor(250,241,240);d.roundedRect(M,y,W-2*M,34,3,3,'F');d.setTextColor(105,69,68);d.setFontSize(fs(8));d.setFont('helvetica','bold');text('PELANGGAN',M+5,y+7);text('NO. WHATSAPP',M+5,y+16);text('KURIR',M+5,y+25);
-  d.setTextColor(25,25,25);d.setFont('times','normal');d.setFontSize(fs(11));text(c.name||'Tanpa nama',M+39,y+7);text(c.wa||'-',M+39,y+16);text($('#inv-courier')?.value||'-',M+39,y+25);
-  d.setDrawColor(226,174,174);d.line(111,y+4,111,y+30);d.setTextColor(105,69,68);d.setFont('helvetica','bold');d.setFontSize(fs(8));text('ALAMAT',117,y+7);d.setTextColor(25,25,25);d.setFont('times','normal');d.setFontSize(fs(9));const addr=d.splitTextToSize(c.address||c.notes||'-',65);d.text(addr,117,y+13);
-  y=115;d.setFillColor(244,225,224);d.roundedRect(M,y,W-2*M,8,2,2,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(7.5));text('NO.',M+2,y+5.5);text('NAMA BARANG',M+11,y+5.5);text('QTY',128,y+5.5,{align:'right'});text('HARGA SATUAN',160,y+5.5,{align:'right'});text('SUBTOTAL',R-2,y+5.5,{align:'right'});y+=12;
+  try{d.addImage(FBA_INVOICE_LOGO,'PNG',W/2-(compact?10:13),compact?8:8,compact?20:26,compact?15:20)}catch(err){d.setTextColor(166,91,94);d.setFont('times','bold');d.setFontSize(fs(18));text('Found by Amanda',W/2,22,{align:'center'})}
+  d.setFont('times','normal');d.setTextColor(166,91,94);d.setFontSize(fs(compact?19:25));text('I N V O I C E',W/2,compact?28:40,{align:'center'});d.setFont('helvetica','normal');d.setFontSize(fs( compact?7:9));text('JASTIP SERVICE',W/2,compact?33:46,{align:'center'});
+  const pillY=compact?36:50;d.setFillColor(248,232,231);d.roundedRect(W/2-(compact?31:37),pillY,compact?62:74,compact?6.5:8,3,3,'F');d.setTextColor(90,53,54);d.setFontSize(fs( compact?7:9));text($('#inv-no')?.value||'FBA-INVOICE',W/2,pillY+(compact?4.5:5.2),{align:'center'});text(new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}),W/2,compact?47:64,{align:'center'});
+  y=compact?51:72;const customerH=compact?28:34;d.setFillColor(250,241,240);d.roundedRect(M,y,W-2*M,customerH,3,3,'F');d.setTextColor(105,69,68);d.setFont('helvetica','bold');d.setFontSize(fs(compact?6.5:8));text('PELANGGAN',M+4,y+(compact?6:7));text('NO. WHATSAPP',M+4,y+(compact?14:16));text('KURIR',M+4,y+(compact?22:25));
+  d.setTextColor(25,25,25);d.setFont('times','normal');
+  // Keep the left-side values aligned after compacting the customer panel.
+  const valueX=M+(compact?31:39);d.setFontSize(fs(compact?8.5:11));text(c.name||'Tanpa nama',valueX,y+(compact?6:7));text(c.wa||'-',valueX,y+(compact?14:16));text($('#inv-courier')?.value||'-',valueX,y+(compact?22:25));
+  d.setDrawColor(226,174,174);d.line(compact?111:111,y+3,111,y+customerH-3);d.setTextColor(105,69,68);d.setFont('helvetica','bold');d.setFontSize(fs(compact?6.5:8));text('ALAMAT',117,y+(compact?6:7));d.setTextColor(25,25,25);d.setFont('times','normal');d.setFontSize(fs(compact?8:9));const addr=d.splitTextToSize(c.address||c.notes||'-',compact?65:65);d.text(addr.slice(0,compact?3:4),117,y+(compact?12:13));
+  y=compact?83:115;d.setFillColor(244,225,224);d.roundedRect(M,y,W-2*M,compact?7:8,2,2,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(compact?6.5:7.5));text('NO.',M+2,y+(compact?4.8:5.5));text('NAMA BARANG',M+11,y+(compact?4.8:5.5));text('QTY',128,y+(compact?4.8:5.5),{align:'right'});text('HARGA SATUAN',160,y+(compact?4.8:5.5),{align:'right'});text('SUBTOTAL',R-2,y+(compact?4.8:5.5),{align:'right'});y+=compact?9:12;
   for(let i=0;i<os.length;i++){
-    const o=os[i], qty=Math.max(1,num(o.qty)||1), unit=Math.round(sell(o)/qty), lineTotal=sell(o), itemLines=d.splitTextToSize(o.item||'Barang',82), storeLine=o.store?String(o.store):'', rowH=Math.max(12,itemLines.length*5.4+(storeLine?5:0)+4);
-    if(y+rowH>220){d.addPage();y=18;d.setTextColor(166,91,94);d.setFont('times','bold');d.setFontSize(fs(16));text('INVOICE — LANJUTAN',M,y);y+=10;d.setFillColor(244,225,224);d.roundedRect(M,y,W-2*M,8,2,2,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(7.5));text('NO.',M+2,y+5.5);text('NAMA BARANG',M+11,y+5.5);text('QTY',128,y+5.5,{align:'right'});text('HARGA SATUAN',160,y+5.5,{align:'right'});text('SUBTOTAL',R-2,y+5.5,{align:'right'});y+=12;}
-    d.setFont('times','normal');d.setFontSize(fs(9));d.setTextColor(25,25,25);text(i+1+'.',M+2,y);d.text(itemLines,M+11,y);if(storeLine){d.setFont('helvetica','normal');d.setFontSize(fs(7));d.setTextColor(110,100,100);text(storeLine,M+11,y+itemLines.length*5.4);}
-    d.setFont('helvetica','normal');d.setFontSize(fs(8));d.setTextColor(25,25,25);text(qty+' pcs',128,y,{align:'right'});text(idr(unit),160,y,{align:'right'});text(idr(lineTotal),R-2,y,{align:'right'});y+=rowH;d.setDrawColor(232,208,207);d.setLineDash([1,1],0);d.line(M,y-2,R,y-2);d.setLineDash([],0);
+    const o=os[i],qty=Math.max(1,num(o.qty)||1),unit=Math.round(sell(o)/qty),lineTotal=sell(o),itemLines=d.splitTextToSize(o.item||'Barang',compact?78:82),storeLine=o.store?String(o.store):'',rowH=Math.max(compact?9:12,itemLines.length*(compact?3.8:5.4)+(storeLine?(compact?3.2:5):0)+(compact?2:4));
+    if(!compact&&y+rowH>220){d.addPage();y=18;d.setTextColor(166,91,94);d.setFont('times','bold');d.setFontSize(fs(16));text('INVOICE — LANJUTAN',M,y);y+=10;d.setFillColor(244,225,224);d.roundedRect(M,y,W-2*M,8,2,2,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(7.5));text('NO.',M+2,y+5.5);text('NAMA BARANG',M+11,y+5.5);text('QTY',128,y+5.5,{align:'right'});text('HARGA SATUAN',160,y+5.5,{align:'right'});text('SUBTOTAL',R-2,y+5.5,{align:'right'});y+=12;}
+    d.setFont('times','normal');d.setFontSize(fs(compact?8:9));d.setTextColor(25,25,25);text(i+1+'.',M+2,y);d.text(itemLines.slice(0,compact?2:5),M+11,y);if(storeLine){d.setFont('helvetica','normal');d.setFontSize(fs(compact?6:7));d.setTextColor(110,100,100);text(storeLine,M+11,y+itemLines.length*(compact?3.8:5.4));}
+    d.setFont('helvetica','normal');d.setFontSize(fs(compact?7:8));d.setTextColor(25,25,25);text(qty+' pcs',128,y,{align:'right'});text(idr(unit),160,y,{align:'right'});text(idr(lineTotal),R-2,y,{align:'right'});y+=rowH;d.setDrawColor(232,208,207);d.setLineDash([1,1],0);d.line(M,y-1.5,R,y-1.5);d.setLineDash([],0);
   }
-  y+=5;if(y>180){d.addPage();y=20}
-  const summaryRow=(label,amount,bold=false)=>{d.setFont('helvetica',bold?'bold':'normal');d.setFontSize(bold?11:9);d.setTextColor(bold?166:105,bold?75:69,bold?75:68);text(label,R-65,y);d.setTextColor(25,25,25);text(idr(amount),R-3,y,{align:'right'});y+=7};
-  summaryRow('SUBTOTAL BARANG',sub);summaryRow('FEE JASTIP',fee);summaryRow('FEE PACKING',pack);summaryRow('ONGKIR',ship);line(y-2);d.setFillColor(248,232,231);d.roundedRect(M,y,W-2*M,13,3,3,'F');d.setFont('helvetica','bold');d.setTextColor(150,67,71);d.setFontSize(fs(9));text('TOTAL BAYAR',M+5,y+8);const totalText=idr(grand);let totalFont=fs(15);d.setFontSize(totalFont);while(d.getTextWidth(totalText)>W-2*M-48&&totalFont>fs(9)){totalFont-=0.5;d.setFontSize(totalFont)}text(totalText,R-4,y+8,{align:'right'});y+=22;
-  const bankLines=d.splitTextToSize(invoiceBankText(os),W-2*M-12), payLines=d.splitTextToSize($('#inv-paynote')?.value||'',W-2*M-12), bankLineH=5.6, payLineH=5.0, bankBoxH=15+bankLines.length*bankLineH+payLines.length*payLineH;
-  if(y+bankBoxH+22>282){d.addPage();y=20}
-  d.setFillColor(250,241,240);d.roundedRect(M,y,W-2*M,bankBoxH,3,3,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(8));text('REKENING PEMBAYARAN',M+5,y+7);d.setTextColor(25,25,25);d.setFont('helvetica','normal');d.setFontSize(fs(9));d.text(bankLines,M+5,y+14);if(payLines.length){d.setTextColor(105,69,68);d.setFontSize(fs(8));d.text(payLines,M+5,y+14+bankLines.length*bankLineH)}
-  y+=bankBoxH+5;line(y);d.setTextColor(166,91,94);d.setFont('times','normal');d.setFontSize(fs(12));text('THANK YOU',W/2,y+8,{align:'center'});d.setFont('helvetica','normal');d.setFontSize(fs(8));text('FOR SHOPPING WITH US',W/2,y+14,{align:'center'});
-  const filename=($('#inv-no')?.value||'invoice').replace(/[^\w-]+/g,'_')+'.pdf';d.save(filename);toast('Invoice berhasil dibuat ✔',2500);
+  y+=compact?2:5;
+  if(!compact&&y>180){d.addPage();y=20}
+  const summaryRow=(label,amount,bold=false)=>{d.setFont('helvetica',bold?'bold':'normal');d.setFontSize(fs(compact?(bold?8.5:7): (bold?11:9)));d.setTextColor(bold?166:105,bold?75:69,bold?75:68);text(label,R-(compact?61:65),y);d.setTextColor(25,25,25);text(idr(amount),R-3,y,{align:'right'});y+=compact?4.7:7};
+  summaryRow('SUBTOTAL BARANG',sub);if(fee)summaryRow('FEE JASTIP',fee);if(pack)summaryRow('FEE PACKING',pack);if(ship)summaryRow('ONGKIR',ship);line(y-1.5);d.setFillColor(248,232,231);d.roundedRect(M,y,W-2*M,compact?10:13,3,3,'F');d.setFont('helvetica','bold');d.setTextColor(150,67,71);d.setFontSize(fs(compact?8.5:9));text('TOTAL BAYAR',M+5,y+(compact?6.5:8));const totalText=idr(grand);let totalFont=fs(compact?11:15);d.setFontSize(totalFont);while(d.getTextWidth(totalText)>W-2*M-48&&totalFont>fs(8)){totalFont-=0.5;d.setFontSize(totalFont)}text(totalText,R-4,y+(compact?6.5:8),{align:'right'});y+=compact?14:22;
+  const bankLines=d.splitTextToSize(invoiceBankText(os),W-2*M-12),payLines=d.splitTextToSize($('#inv-paynote')?.value||'',W-2*M-12),bankLineH=compact?4:5.6,payLineH=compact?3.8:5,bankBoxH=(compact?12:15)+bankLines.length*bankLineH+payLines.length*payLineH;
+  if(!compact&&y+bankBoxH+22>282){d.addPage();y=20}
+  // For invoices with fewer than five order lines, fit every section on page one.
+  if(compact&&y+bankBoxH+18>280){
+    d.setFontSize(fs(7));
+  }
+  d.setFillColor(250,241,240);d.roundedRect(M,y,W-2*M,bankBoxH,3,3,'F');d.setTextColor(130,72,72);d.setFont('helvetica','bold');d.setFontSize(fs(compact?7:8));text('REKENING PEMBAYARAN',M+5,y+(compact?5.5:7));d.setTextColor(25,25,25);d.setFont('helvetica','normal');d.setFontSize(fs(compact?7.5:9));d.text(bankLines.slice(0,compact?5:20),M+5,y+(compact?10:14));if(payLines.length){d.setTextColor(105,69,68);d.setFontSize(fs(compact?6.5:8));d.text(payLines.slice(0,compact?2:10),M+5,y+(compact?10:14)+bankLines.length*bankLineH)}
+  y+=bankBoxH+(compact?3:5);line(y);d.setTextColor(166,91,94);d.setFont('times','normal');d.setFontSize(fs(compact?9:12));text('THANK YOU',W/2,y+(compact?5:8),{align:'center'});d.setFont('helvetica','normal');d.setFontSize(fs(compact?6.5:8));text('FOR SHOPPING WITH US',W/2,y+(compact?10:14),{align:'center'});
+  const filename=(($('#inv-no')?.value||'invoice').replace(/[^\w-]+/g,'_'))+'.pdf';
+  if(returnFile)return new File([d.output('blob')],filename,{type:'application/pdf'});
+  d.save(filename);toast(compact?'Invoice 1 halaman berhasil dibuat ✔':'Invoice berhasil dibuat ✔',2500);
 }
-
 function vS(){
   const q=(S.sq||'').trim().toLowerCase();
   const list=(S.sellers||[]).filter(x=>!q||((x.name||'')+' '+(x.location||'')).toLowerCase().includes(q)).slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));
