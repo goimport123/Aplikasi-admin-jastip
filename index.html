@@ -494,6 +494,10 @@ function rememberTabScroll(tab=renderedTab){
   if(el&&tab==='q')tabScroll.q=el.scrollTop;
 }
 function render(){
+  // Jangan bangun ulang tampilan saat pengguna sedang mengetik kurs.
+  // Snapshot/sinkronisasi cloud dapat memanggil render() di tengah input.
+  const activeRateInput=document.activeElement;
+  if(activeRateInput&&activeRateInput.matches&&activeRateInput.matches('input[data-r]'))return;
   rememberTabScroll();
   const targetTab=S.tab;
   sortCustomers();if(Array.isArray(S.sellers))S.sellers.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));if(Array.isArray(S.cargos))S.cargos.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true}));
