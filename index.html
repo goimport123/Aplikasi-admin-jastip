@@ -741,7 +741,7 @@ function orderSheet(id){const o=S.orders.find(x=>x.id===id)||{cid:'',item:'',sto
 let photo=photoSrc(o);
 sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 <label>Cari pelanggan berdasarkan nama</label><input id="f-cq" placeholder="Ketik nama pelanggan…" autocomplete="off" value="">
-<label>Pelanggan</label><select id="f-c"><option value="" ${!o.cid?'selected':''}>Pilih pelanggan…</option>${S.customers.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}<option value="+">+ Pelanggan baru…</option></select>
+<label>Pelanggan</label><select id="f-c"><option value="+">+ Pelanggan baru…</option><option value="" ${!o.cid?'selected':''}>Pilih pelanggan…</option>${S.customers.slice().sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(c=>`<option value="${c.id}" ${c.id===o.cid?'selected':''}>${e(c.name)}</option>`).join('')}</select>
 <div id="nc" hidden><label>Nama pelanggan baru</label><input id="f-nn" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="f-nw" inputmode="tel" placeholder="0812…"></div>
 <label>Tanggal order</label><input id="f-date" type="date" value="${e(orderDateOf(o))}"><label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
 <label>Cari toko berdasarkan nama</label><input id="f-sq" placeholder="Ketik nama toko…" autocomplete="off" value="">
