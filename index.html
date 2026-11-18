@@ -745,7 +745,8 @@ sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 <div id="nc" hidden><label>Nama pelanggan baru</label><input id="f-nn" placeholder="mis. Bu Yuni"><label>Nomor WhatsApp</label><input id="f-nw" inputmode="tel" placeholder="0812…"></div>
 <label>Tanggal order</label><input id="f-date" type="date" value="${e(orderDateOf(o))}"><label>Barang</label><input id="f-i" value="${e(o.item)}" placeholder="mis. Hada Labo Gokujyun">
 <label>Cari toko berdasarkan nama</label><input id="f-sq" placeholder="Ketik nama toko…" autocomplete="off" value="">
-<label>Toko</label><select id="f-s"><option value="" ${!o.store?'selected':''}>Pilih toko…</option>${[...(S.sellers||[])].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(x=>`<option value="${e(x.name)}" ${x.name===o.store?'selected':''}>${e(x.name)}${x.location?' · '+e(x.location):''}</option>`).join('')}${o.store&&!(S.sellers||[]).some(x=>x.name===o.store)?`<option value="${e(o.store)}" selected>${e(o.store)}</option>`:''}</select>
+<label>Toko</label><select id="f-s"><option value="+">+ Toko baru…</option><option value="" ${!o.store?'selected':''}>Pilih toko…</option>${[...(S.sellers||[])].sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'id',{sensitivity:'base',numeric:true})).map(x=>`<option value="${e(x.name)}" ${x.name===o.store?'selected':''}>${e(x.name)}${x.location?' · '+e(x.location):''}</option>`).join('')}${o.store&&!(S.sellers||[]).some(x=>x.name===o.store)?`<option value="${e(o.store)}" selected>${e(o.store)}</option>`:''}</select>
+<div id="ns" hidden><label>Nama toko baru</label><input id="f-sn" placeholder="mis. Matsumoto Kiyoshi"><label>Lokasi toko (opsional)</label><input id="f-sl" placeholder="mis. Shibuya, Tokyo"></div>
 <div class="two"><div><label>Kategori</label><select id="f-k">${CAT.map(k=>`<option ${k===o.cat?'selected':''}>${k}</option>`).join('')}</select></div><div><label>Dibawa lewat</label><select id="f-pm"><option value="kargo_udara" ${(!o.pm||o.pm==='kargo'||o.pm==='kargo_udara')?'selected':''}>Kargo udara</option><option value="kargo_laut" ${o.pm==='kargo_laut'?'selected':''}>Kargo laut</option><option value="koper" ${o.pm==='koper'?'selected':''}>Koper</option></select></div></div>
 <div class="two"><div><label>Mata uang modal</label><select id="f-u">${Object.keys(S.rates).map(c=>`<option ${c===o.cur?'selected':''}>${c}</option>`).join('')}</select></div>
 <div><label>Harga modal per pcs</label><input id="f-a" inputmode="decimal" value="${o.amt}"></div></div>
@@ -763,12 +764,12 @@ sheet(`<h1>${id?'Ubah pesanan':'Pesanan baru'}</h1>
 const customerOptions=[...$('#f-c').options];
 const sellerOptions=[...$('#f-s').options];
 const filterCustomers=()=>{const q=$('#f-cq').value.trim().toLocaleLowerCase('id');let shown=[];customerOptions.forEach(opt=>{const show=opt.value==='+'||opt.value===''||!q||opt.textContent.toLocaleLowerCase('id').includes(q);opt.hidden=!show;if(show&&opt.value!==''&&opt.value!=='+')shown.push(opt)});if(q&&shown.length===1){$('#f-c').value=shown[0].value;$('#nc').hidden=true}};
-const filterSellers=()=>{const q=$('#f-sq').value.trim().toLocaleLowerCase('id');let shown=[];sellerOptions.forEach(opt=>{const show=opt.value===''||!q||opt.textContent.toLocaleLowerCase('id').includes(q);opt.hidden=!show;if(show&&opt.value!=='')shown.push(opt)});if(q&&shown.length===1)$('#f-s').value=shown[0].value};
+const filterSellers=()=>{const q=$('#f-sq').value.trim().toLocaleLowerCase('id');let shown=[];sellerOptions.forEach(opt=>{const show=opt.value==='+'||opt.value===''||!q||opt.textContent.toLocaleLowerCase('id').includes(q);opt.hidden=!show;if(show&&opt.value!==''&&opt.value!=='+')shown.push(opt)});if(q&&shown.length===1)$('#f-s').value=shown[0].value};
 $('#f-cq').oninput=filterCustomers;
 $('#f-c').onchange=()=>{const v=$('#f-c').value;$('#nc').hidden=v!=='+';if(v!=='+'&&v!==''){const c=S.customers.find(x=>x.id===v);if(c){/* nama tidak dimasukkan otomatis ke kolom pencarian */}}};
 $('#f-sq').oninput=filterSellers;
-$('#f-s').onchange=()=>{const v=$('#f-s').value;if(v&&v!=='')$('#f-sq').value=''};
-$('#nc').hidden=$('#f-c').value!=='+';
+$('#f-s').onchange=()=>{const v=$('#f-s').value;$('#ns').hidden=v!=='+';if(v&&v!=='+')$('#f-sq').value=''};
+$('#nc').hidden=$('#f-c').value!=='+';$('#ns').hidden=$('#f-s').value!=='+';
 filterCustomers();filterSellers();
 
 const pv=()=>{const cur=$('#f-u').value,r=S.rates[cur]||0,qty=Math.max(1,num($('#f-q').value)),a=num($('#f-a').value)*qty*r,final=num($('#f-final').value),m=num($('#f-m').value),t=$('#f-mt').value;
@@ -786,6 +787,7 @@ $('#p-cam').onchange=pick;$('#p-gal').onchange=pick;paint();
 $('#f-ok').onclick=async()=>{let cid=$('#f-c').value;
 if(cid==='+'){const n=$('#f-nn').value.trim();if(!n)return toast('Isi nama pelanggannya dulu ya',2500);cid=uid();S.customers.push({id:cid,name:n,wa:$('#f-nw').value.trim(),notes:''})}
 if(!cid)return toast('Pilih pelanggan dulu ya',2500);
+let store=$('#f-s').value;if(store==='+'){const name=$('#f-sn').value.trim();if(!name)return toast('Isi nama toko dulu ya',2500);const location=$('#f-sl').value.trim();const existing=(S.sellers||[]).find(x=>String(x.name||'').toLocaleLowerCase('id')===name.toLocaleLowerCase('id'));if(existing)store=existing.name;else{store=name;S.sellers.push({id:uid(),name,location,bankName:'',bankNumber:'',bankOwner:''})}}
 const item=$('#f-i').value.trim(),amt=num($('#f-a').value),qty=Math.max(1,Math.round(num($('#f-q').value))||1),finalPrice=Math.round(num($('#f-final').value));if(!item||!amt)return toast('Nama barang & harga wajib diisi',2500);
 const cur=$('#f-u').value;if(!S.rates[cur])return toast('Kurs '+cur+' belum diisi',2500);
 const modalTotal=amt*qty*S.rates[cur];if(finalPrice>0&&finalPrice<modalTotal)return toast('Harga akhir tidak boleh lebih kecil dari modal '+idr(modalTotal),3500);
@@ -794,7 +796,7 @@ const autoMarkup=finalPrice>0?Math.max(0,(finalPrice-modalTotal)/qty):num($('#f-
 const orderDate=$('#f-date').value||localDateInput();
 // Foto baru disimpan lebih dulu di localStorage. URL Firebase baru dipasang
 // setelah upload berhasil, sehingga foto tetap tampil walau koneksi server lambat.
-const d={cid,item,store:$('#f-s').value.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,orderDate,photo:newPhotoIsData?oldPhoto:photo,photoPath:newPhotoIsData?oldPath:photo?oldPath:'',pm:$('#f-pm').value};
+const d={cid,item,store:store==='+'?'':store.trim(),cat:$('#f-k').value,cur,amt,qty,finalPrice:finalPrice||0,markup:autoMarkup,mt:finalPrice>0?'idr':$('#f-mt').value,orderDate,photo:newPhotoIsData?oldPhoto:photo,photoPath:newPhotoIsData?oldPath:photo?oldPath:'',pm:$('#f-pm').value};
 if(id){const x=old;Object.assign(x,d);if(!x.rate||x.cur!==cur)x.rate=S.rates[cur]}
 else{S.orders.push({...d,id:orderId,rate:S.rates[cur],status:0,paidAmt:0,tripId:S.tripId,ts:Date.now()});if(S.view!=='all')S.view='cur'}
 if(newPhotoIsData)saveLocalPhoto(orderId,photo);
