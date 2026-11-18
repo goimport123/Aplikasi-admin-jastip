@@ -820,7 +820,7 @@ $('#f-f').onchange=async ev=>{
 
 const SHIP=['Diproses forwarder','OTW Indonesia','Tiba di Indonesia','Done'];
 const shipIds=()=>Object.keys(S.ships).filter(r=>S.orders.some(o=>o.resi===r));
-function vP(){const bo=S.orders.filter(bought),k=shipIds(),kp=bo.filter(o=>(o.pm||'kargo')==='koper'&&!o.resi),h0=`<div class="chips"><button class="chip ${S.pk==='k'||S.pk==='kp'?'':'on'}" data-pk="siap">Perlu dipacking</button><button class="chip ${S.pk==='kp'?'on':''}" data-pk="kp">Koper (${kp.length})</button><button class="chip ${S.pk==='k'?'on':''}" data-pk="k">Kargo forwarder (${k.length})</button></div>`;
+function vP(){const bo=vo().filter(bought),k=Object.keys(S.ships).filter(r=>bo.some(o=>o.resi===r)),kp=bo.filter(o=>(o.pm||'kargo')==='koper'&&!o.resi),h0=`<div class="chips"><button class="chip ${S.pk==='k'||S.pk==='kp'?'':'on'}" data-pk="siap">Perlu dipacking</button><button class="chip ${S.pk==='kp'?'on':''}" data-pk="kp">Koper (${kp.length})</button><button class="chip ${S.pk==='k'?'on':''}" data-pk="k">Kargo forwarder (${k.length})</button></div>`;
 if(S.pk==='k')return h0+vK(k);
 if(S.pk==='kp')return h0+vKp(kp);
 const pkd=bo.filter(o=>o.packed).length,pc=bo.length?Math.round(pkd/bo.length*100):0,L=bo.filter(o=>!o.resi);
